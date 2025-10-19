@@ -9,6 +9,7 @@ import { generateImageHash } from '../utils/imageHash'
 
 
 
+
 // ============================================
 // 🎯 메인 컴포넌트
 // ============================================
@@ -18,6 +19,8 @@ export default function Upload() {
   // 🔐 로그인 상태 체크
   // ------------------------------------------
   const { user, loading: authLoading } = useAuth()
+
+
 
 
   // ------------------------------------------
@@ -86,7 +89,7 @@ export default function Upload() {
   async function handleSubmit(e) {
     e.preventDefault()
     setUploading(true)
-    
+
     let hash = null
 
     try {
@@ -95,7 +98,7 @@ export default function Upload() {
       // ------------------------------------------
       if (imageFile) {
         // 1. 이미지 해시 생성
-        const hash = await generateImageHash(imageFile)
+        hash = await generateImageHash(imageFile)
         
         if (!hash) {
           throw new Error('이미지 처리 중 오류가 발생했습니다.')
@@ -134,7 +137,6 @@ export default function Upload() {
       // ------------------------------------------
       let imageUrl = null
 
-      // 1️⃣ 이미지를 Supabase Storage에 업로드
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop()
         const fileName = `${Math.random()}.${fileExt}`
@@ -143,7 +145,13 @@ export default function Upload() {
           .upload(fileName, imageFile)
 
         if (error) throw error
-        imageUrl = data.path
+        
+        // 전체 공개 URL 생성
+        const { data: { publicUrl } } = supabase.storage
+          .from('photos')
+          .getPublicUrl(fileName)
+        
+        imageUrl = publicUrl
       }
 
       // 2️⃣ 사진 정보를 DB에 저장
@@ -156,7 +164,7 @@ export default function Upload() {
         preview_url: imageUrl,
         image_hash: hash,
         status: 'active',
-        user_id: user.id  // 로그인한 유저 ID 저장
+        user_id: user.id
       })
 
       if (error) throw error
@@ -312,7 +320,8 @@ export default function Upload() {
               />
             </div>
           </div>
-          
+
+
           {/* 이용약관 동의 */}
           <div className="border-t pt-4">
             <label className="flex items-start gap-3 cursor-pointer">
@@ -346,7 +355,7 @@ export default function Upload() {
             {uploading ? '업로드 중...' : '등록하기'}
           </button>
 
-         
+
         </div>
       </form>
 

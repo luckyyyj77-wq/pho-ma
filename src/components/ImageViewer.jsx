@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { X, ZoomIn, ZoomOut } from 'lucide-react'
 
+
 export default function ImageViewer({ imageUrl, title, onClose }) {
   const [scale, setScale] = useState(1)
 
