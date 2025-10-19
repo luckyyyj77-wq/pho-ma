@@ -3,13 +3,14 @@
 // ============================================
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Search, Camera, Home, User } from 'lucide-react'
+import { Search, Camera, Home, User, Heart } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { addWatermark } from '../utils/watermark'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/Toast'
 import ImageViewer from '../components/ImageViewer'
 import Loading from '../components/Loading'
+import { useLikes } from '../hooks/useLikes'
 
 
 
@@ -265,6 +266,49 @@ export default function PhotoMarketplace() {
     )
   }
 
+  // ------------------------------------------
+  // ❤️ 좋아요 버튼 컴포넌트 (여기에 추가!)
+  // ------------------------------------------
+  function LikeButton({ photo }) {
+    const { isLiked, likesCount, loading, toggleLike } = useLikes(photo.id, user?.id)
+
+    const handleLike = async () => {
+      if (!user) {
+        error('로그인이 필요해요!')
+        setTimeout(() => window.location.href = '/auth', 1500)
+        return
+      }
+
+      const result = await toggleLike()
+
+      if (result.success) {
+        if (result.action === 'liked' && result.reward?.given) {
+          success(result.reward.message)
+        }
+      } else if (result.message) {
+        info(result.message)
+      }
+    }
+
+    return (
+      <button
+        onClick={handleLike}
+        disabled={loading}
+        className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg font-semibold transition-all mb-4 ${
+          isLiked 
+            ? 'bg-pink-500 text-white' 
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+        }`}
+      >
+        <Heart 
+          size={20} 
+          fill={isLiked ? 'currentColor' : 'none'}
+          className={loading ? 'animate-pulse' : ''}
+        />
+        <span>좋아요 {likesCount > 0 && `(${likesCount})`}</span>
+      </button>
+    )
+  }
 
 
 
@@ -364,6 +408,8 @@ export default function PhotoMarketplace() {
                 </div>
               </div>
 
+              {/* 좋아요 버튼 (추가!) */}
+              <LikeButton photo={selectedPhoto} />
 
               {/* 상세 정보 */}
               <div className="space-y-3 mb-6">
@@ -620,6 +666,7 @@ export default function PhotoMarketplace() {
                 </div>
 
                 
+
                 {/* 정보 */}
                 <div className="p-2 sm:p-3" onClick={() => setSelectedPhoto(photo)}>
                   <h3 className="font-bold text-xs sm:text-sm mb-1 sm:mb-2 truncate">{photo.title}</h3>
