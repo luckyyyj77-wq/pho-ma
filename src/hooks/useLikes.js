@@ -100,7 +100,7 @@ export function useLikes(photoId, userId) {
       const today = new Date().toISOString().split('T')[0]
 
       // 오늘 받은 좋아요 포인트 확인
-      const { data: rewardData } = await supabase
+      let { data: rewardData } = await supabase
         .from('daily_like_rewards')
         .select('likes_count')
         .eq('user_id', userId)
@@ -112,6 +112,34 @@ export function useLikes(photoId, userId) {
       // 10회 제한
       if (currentCount >= 10) {
         return { given: false, message: '오늘 좋아요 포인트를 모두 받았어요!' }
+      }
+
+      // 좋아요 카운트 먼저 업데이트 (중복 방지!)
+      if (rewardData) {
+        const { error: updateError } = await supabase
+          .from('daily_like_rewards')
+          .update({ likes_count: currentCount + 1 })
+          .eq('user_id', userId)
+          .eq('reward_date', today)
+          .eq('likes_count', currentCount)  // 중요! 값이 안 바뀌었을 때만 업데이트
+        
+        if (updateError) {
+          // 이미 다른 요청에서 업데이트됨
+          return { given: false, message: '이미 처리 중입니다' }
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from('daily_like_rewards')
+          .insert({
+            user_id: userId,
+            reward_date: today,
+            likes_count: 1
+          })
+        
+        if (insertError) {
+          // 이미 생성됨
+          return { given: false, message: '이미 처리 중입니다' }
+        }
       }
 
       // 포인트 지급
@@ -138,28 +166,11 @@ export function useLikes(photoId, userId) {
         description: '좋아요 포인트'
       })
 
-      // 좋아요 카운트 업데이트
-      if (rewardData) {
-        await supabase
-          .from('daily_like_rewards')
-          .update({ likes_count: currentCount + 1 })
-          .eq('user_id', userId)
-          .eq('reward_date', today)
-      } else {
-        await supabase
-          .from('daily_like_rewards')
-          .insert({
-            user_id: userId,
-            reward_date: today,
-            likes_count: 1
-          })
-      }
-
       return { 
         given: true, 
         points: 10, 
-        remaining: 9 - currentCount,
-        message: `+10P 획득! (오늘 ${9 - currentCount}회 남음)`
+        remaining: 10 - currentCount - 1,
+        message: `+10P 획득! (오늘 ${10 - currentCount - 1}회 남음)`
       }
 
     } catch (error) {
@@ -167,7 +178,6 @@ export function useLikes(photoId, userId) {
       return { given: false }
     }
   }
-
   return {
     isLiked,
     likesCount,
