@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Search, Camera, Home, User, Heart } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import { addWatermark } from '../utils/watermark'
+// import { addWatermark } from '../utils/watermark'  // ⬅️ 주석 처리
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/Toast'
 import ImageViewer from '../components/ImageViewer'
@@ -35,7 +35,7 @@ export default function PhotoMarketplace() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('전체')
   const [selectedPhoto, setSelectedPhoto] = useState(null)
-  const [watermarkedImages, setWatermarkedImages] = useState({})
+  // const [watermarkedImages, setWatermarkedImages] = useState({})  // ⬅️ 주석 처리
   const [viewerImage, setViewerImage] = useState(null)
   const [purchasing, setPurchasing] = useState(false)
 
@@ -203,7 +203,7 @@ export default function PhotoMarketplace() {
       console.error('구매 실패:', err)
       error('구매 중 오류가 발생했어요')
     } finally {
-      setPurchasing(false)  // 추가!
+      setPurchasing(false)
     }
   }
 
@@ -211,8 +211,9 @@ export default function PhotoMarketplace() {
 
 
   // ------------------------------------------
-  // 🎨 워터마크 이미지 가져오기 (캐싱)
+  // 🎨 워터마크 이미지 가져오기 - 임시 비활성화
   // ------------------------------------------
+  /* ⬇️ 주석 처리
   async function getWatermarkedImage(photo) {
     if (watermarkedImages[photo.id]) {
       return watermarkedImages[photo.id]
@@ -230,44 +231,45 @@ export default function PhotoMarketplace() {
       return photo.preview_url
     }
   }
+  */
 
 
 
 
   // ------------------------------------------
-  // 📸 워터마크 적용된 썸네일 컴포넌트
+  // 📸 썸네일 컴포넌트 - 워터마크 없이 바로 표시
   // ------------------------------------------
   function PhotoThumbnail({ photo, onClick }) {
-    const [imageSrc, setImageSrc] = useState(null)
-
-    useEffect(() => {
-      if (photo.preview_url) {
-        getWatermarkedImage(photo).then(setImageSrc)
-      }
-    }, [photo.id])
-
     return (
       <div 
-        className="aspect-square bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center"
+        className="aspect-square bg-gradient-to-br from-orange-50 to-orange-100 relative overflow-hidden"
         onClick={onClick}
       >
-        {imageSrc ? (
-          <img 
-            src={imageSrc} 
-            alt={photo.title} 
-            className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
-          />
-        ) : photo.preview_url ? (
-          <Loading />
+        {photo.preview_url ? (
+          <>
+            <img 
+              src={photo.preview_url} 
+              alt={photo.title} 
+              className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
+            />
+            {/* 간단한 텍스트 워터마크만 표시 */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="bg-black/30 text-white text-xs px-3 py-1 rounded-full backdrop-blur-sm">
+                🍜 Pho-Ma
+              </div>
+            </div>
+          </>
         ) : (
-          <Camera size={48} className="text-orange-300" />
+          <div className="w-full h-full flex items-center justify-center">
+            <Camera size={48} className="text-orange-300" />
+          </div>
         )}
       </div>
     )
   }
 
   // ------------------------------------------
-  // ❤️ 좋아요 버튼 컴포넌트 (여기에 추가!)
+  // ❤️ 좋아요 버튼 컴포넌트
   // ------------------------------------------
   function LikeButton({ photo }) {
     const { isLiked, likesCount, loading, toggleLike } = useLikes(photo.id, user?.id)
@@ -408,7 +410,7 @@ export default function PhotoMarketplace() {
                 </div>
               </div>
 
-              {/* 좋아요 버튼 (추가!) */}
+              {/* 좋아요 버튼 */}
               <LikeButton photo={selectedPhoto} />
 
               {/* 상세 정보 */}
@@ -662,7 +664,7 @@ export default function PhotoMarketplace() {
                     title: photo.title
                   })
                 }}>
-                  <PhotoThumbnail photo={photo} />
+                  <PhotoThumbnail photo={photo} onClick={() => setSelectedPhoto(photo)} />
                 </div>
 
                 

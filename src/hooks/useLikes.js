@@ -1,5 +1,5 @@
 // ============================================
-// ❤️ 좋아요 기능 Hook
+// ❤️ 좋아요 기능 Hook (완전 수정 버전)
 // ============================================
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
@@ -24,7 +24,7 @@ export function useLikes(photoId, userId) {
         .select('id')
         .eq('photo_id', photoId)
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
 
       setIsLiked(!!likeData)
 
@@ -43,13 +43,13 @@ export function useLikes(photoId, userId) {
 
   async function toggleLike() {
     if (!userId) return { success: false, message: '로그인이 필요해요!' }
-    if (loading) return { success: false }
+    if (loading) return { success: false, message: '처리 중입니다...' }
 
     setLoading(true)
 
     try {
       if (isLiked) {
-        // 좋아요 취소
+        // ===== 좋아요 취소 =====
         await supabase
           .from('likes')
           .delete()
@@ -65,17 +65,37 @@ export function useLikes(photoId, userId) {
         return { success: true, action: 'unliked' }
 
       } else {
-        // 좋아요 추가
+        // ===== 좋아요 추가 =====
+        
+        // 1. 중복 체크 (동시 클릭 방지)
+        const { data: existingLike } = await supabase
+          .from('likes')
+          .select('id')
+          .eq('photo_id', photoId)
+          .eq('user_id', userId)
+          .maybeSingle()
+
+        if (existingLike) {
+          return { success: false, message: '이미 좋아요 했어요!' }
+        }
+
+        // 2. 좋아요 추가
         const { error: likeError } = await supabase
           .from('likes')
           .insert({ user_id: userId, photo_id: photoId })
 
-        if (likeError) throw likeError
+        if (likeError) {
+          // unique 제약 위반 = 이미 좋아요함
+          if (likeError.code === '23505') {
+            return { success: false, message: '이미 좋아요 했어요!' }
+          }
+          throw likeError
+        }
 
-        // 좋아요 수 증가
+        // 3. 좋아요 수 증가
         await supabase.rpc('increment_likes', { photo_id: photoId })
 
-        // 오늘 좋아요 포인트 지급 확인
+        // 4. 포인트 지급 여부 확인 (한 번만 지급!)
         const reward = await checkAndGiveReward()
 
         setIsLiked(true)
@@ -99,78 +119,129 @@ export function useLikes(photoId, userId) {
     try {
       const today = new Date().toISOString().split('T')[0]
 
-      // 오늘 받은 좋아요 포인트 확인
-      let { data: rewardData } = await supabase
+      // ===== 🔥 핵심: 이미 포인트 받은 사진인지 체크 =====
+      const { data: alreadyRewarded } = await supabase
+        .from('like_rewards_history')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('photo_id', photoId)
+        .eq('reward_date', today)
+        .maybeSingle()
+
+      if (alreadyRewarded) {
+        return { 
+          given: false, 
+          message: '이 사진은 이미 포인트를 받았어요!' 
+        }
+      }
+
+      // ===== 일일 제한 확인 =====
+      const { data: dailyData } = await supabase
         .from('daily_like_rewards')
         .select('likes_count')
         .eq('user_id', userId)
         .eq('reward_date', today)
-        .single()
+        .maybeSingle()
 
-      const currentCount = rewardData?.likes_count || 0
+      const currentCount = dailyData?.likes_count || 0
 
       // 10회 제한
       if (currentCount >= 10) {
-        return { given: false, message: '오늘 좋아요 포인트를 모두 받았어요!' }
+        return { 
+          given: false, 
+          message: '오늘 좋아요 포인트를 모두 받았어요!' 
+        }
       }
 
-      // 좋아요 카운트 먼저 업데이트 (중복 방지!)
-      if (rewardData) {
-        const { error: updateError } = await supabase
+      // ===== 포인트 지급 =====
+
+      // 1. 일일 카운트 증가
+      if (dailyData) {
+        await supabase
           .from('daily_like_rewards')
           .update({ likes_count: currentCount + 1 })
           .eq('user_id', userId)
           .eq('reward_date', today)
-          .eq('likes_count', currentCount)  // 중요! 값이 안 바뀌었을 때만 업데이트
-        
-        if (updateError) {
-          // 이미 다른 요청에서 업데이트됨
-          return { given: false, message: '이미 처리 중입니다' }
-        }
       } else {
-        const { error: insertError } = await supabase
+        await supabase
           .from('daily_like_rewards')
           .insert({
             user_id: userId,
             reward_date: today,
             likes_count: 1
           })
-        
-        if (insertError) {
-          // 이미 생성됨
-          return { given: false, message: '이미 처리 중입니다' }
-        }
       }
 
-      // 포인트 지급
-      const { data: pointData } = await supabase
+      // 2. 이 사진에 대한 포인트 지급 기록
+      await supabase
+        .from('like_rewards_history')
+        .insert({
+          user_id: userId,
+          photo_id: photoId,
+          reward_date: today
+        })
+
+      // 3. 포인트 지급
+      const { data: pointData, error: pointFetchError } = await supabase
         .from('user_points')
         .select('balance')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
 
-      const newBalance = (pointData?.balance || 0) + 10
+      if (pointFetchError) {
+        console.error('포인트 조회 실패:', pointFetchError)
+        return { given: false }
+      }
 
-      await supabase
-        .from('user_points')
-        .update({ balance: newBalance })
-        .eq('user_id', userId)
+      const currentBalance = pointData?.balance || 0
+      const newBalance = currentBalance + 100
 
-      // 거래 내역 기록
-      await supabase.from('transactions').insert({
-        user_id: userId,
-        photo_id: photoId,
-        type: 'charge',
-        amount: 10,
-        balance_after: newBalance,
-        description: '좋아요 포인트'
-      })
+      // UPDATE 또는 INSERT
+      if (pointData) {
+        const { error: updateError } = await supabase
+          .from('user_points')
+          .update({ balance: newBalance })
+          .eq('user_id', userId)
+
+        if (updateError) {
+          console.error('포인트 업데이트 실패:', updateError)
+          return { given: false }
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from('user_points')
+          .insert({
+            user_id: userId,
+            balance: newBalance
+          })
+
+        if (insertError) {
+          console.error('포인트 생성 실패:', insertError)
+          return { given: false }
+        }
+      }
+
+      // 4. 거래 내역 기록
+      const { error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: userId,
+          photo_id: photoId,
+          type: 'reward',
+          amount: 100,
+          balance_after: newBalance,
+          description: '좋아요 포인트'
+        })
+
+      if (txError) {
+        console.error('거래 내역 기록 실패:', txError)
+      }
 
       return { 
         given: true, 
-        points: 10, 
+        points: 100, 
         remaining: 10 - currentCount - 1,
-        message: `+10P 획득! (오늘 ${10 - currentCount - 1}회 남음)`
+        message: `💰 +10P 획득! (오늘 ${10 - currentCount - 1}회 남음)`
       }
 
     } catch (error) {
@@ -178,6 +249,7 @@ export function useLikes(photoId, userId) {
       return { given: false }
     }
   }
+
   return {
     isLiked,
     likesCount,
