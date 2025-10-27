@@ -167,24 +167,24 @@ async function handleBuyNow(photo) {
     }
 
     // ===== 2. 내 포인트 확인 =====
-const { data: myPoints, error: pointsError } = await supabase
-  .from('user_points')
-  .select('balance')
-  .eq('user_id', user.id)
-  .single()
+    const { data: myProfile, error: pointsError } = await supabase
+      .from('profiles')
+      .select('points')
+      .eq('id', user.id)  // ✅ 수정: user_id → id
+      .single()
 
-console.log('내 포인트:', myPoints?.balance, '필요:', buyPrice)
+    console.log('내 포인트:', myProfile?.points, '필요:', buyPrice)
 
-if (pointsError) {
-  console.error('포인트 조회 실패:', pointsError)
-  throw pointsError
-}
+    if (pointsError) {
+      console.error('포인트 조회 실패:', pointsError)
+      throw pointsError
+    }
 
-if (!myPoints || myPoints.balance < buyPrice) {
-  error(`포인트가 부족해요! (보유: ${myPoints?.balance || 0}P, 필요: ${buyPrice}P)`)
-  setPurchasing(false)  // 중요!
-  return
-}
+    if (!myProfile || myProfile.points < buyPrice) {
+      error(`포인트가 부족해요! (보유: ${myProfile?.points || 0}P, 필요: ${buyPrice}P)`)
+      setPurchasing(false)
+      return
+    }
 
     // ===== 3. 사진 상태를 먼저 'sold'로 변경 (중복 구매 방지!) =====
     const { error: updatePhotoError } = await supabase
@@ -200,60 +200,47 @@ if (!myPoints || myPoints.balance < buyPrice) {
 
     // ===== 4. 내 포인트 차감 =====
     const { error: deductError } = await supabase
-      .from('user_points')
-      .update({ balance: myPoints.balance - buyPrice })
-      .eq('user_id', user.id)
+      .from('profiles')
+      .update({ points: myProfile.points - buyPrice })
+      .eq('id', user.id)
 
     if (deductError) throw deductError
 
     // ===== 5. 판매자 포인트 지급 =====
-    const { data: sellerPoints } = await supabase
-      .from('user_points')
-      .select('balance')
-      .eq('user_id', photo.user_id)
-      .maybeSingle()
+    const { data: sellerProfile } = await supabase
+      .from('profiles')
+      .select('points')
+      .eq('id', photo.user_id)  // ✅ 수정: photo.id → photo.user_id
+      .single()
 
-    if (sellerPoints) {
+    if (sellerProfile) {
       await supabase
-        .from('user_points')
-        .update({ balance: sellerPoints.balance + buyPrice })
-        .eq('user_id', photo.user_id)
-    } else {
-      // 판매자 포인트 계정이 없으면 생성
-      await supabase
-        .from('user_points')
-        .insert({
-          user_id: photo.user_id,
-          balance: buyPrice
-        })
+        .from('profiles')
+        .update({ points: sellerProfile.points + buyPrice })
+        .eq('id', photo.user_id)  // ✅ 수정: photo.id → photo.user_id
     }
 
     // ===== 6. purchases 테이블에 기록 =====
-console.log('=== purchases INSERT 시도 ===', {
-  photo_id: photo.id,
-  buyer_id: user.id,
-  seller_id: photo.user_id,
-  price: buyPrice,
-  purchase_type: 'buy_now'
-})
+    console.log('=== purchases INSERT 시도 ===', {
+      photo_id: photo.id,
+      buyer_id: user.id,
+      seller_id: photo.user_id,
+      price: buyPrice,
+      purchase_type: 'buy_now'
+    })
 
-const { data: purchaseData, error: purchaseError } = await supabase
-  .from('purchases')
-  .insert({
-    photo_id: photo.id,
-    buyer_id: user.id,
-    seller_id: photo.user_id,
-    price: buyPrice,
-    purchase_type: 'buy_now'
-  })
-  .select()  // ← 추가: 결과 확인
+    const { data: purchaseData, error: purchaseError } = await supabase
+      .from('purchases')
+      .insert({
+        photo_id: photo.id,
+        buyer_id: user.id,
+        seller_id: photo.user_id,
+        price: buyPrice,
+        purchase_type: 'buy_now'
+      })
+      .select()
 
-console.log('purchases INSERT 결과:', purchaseData, purchaseError)
-
-if (purchaseError) {
-  console.error('구매 기록 실패:', purchaseError)
-   throw purchaseError  // ← 추가! 에러 발생시키기
-}
+    console.log('purchases INSERT 결과:', purchaseData, purchaseError)
 
     if (purchaseError) {
       console.error('구매 기록 실패:', purchaseError)
@@ -266,7 +253,7 @@ if (purchaseError) {
       photo_id: photo.id,
       type: 'purchase',
       amount: -buyPrice,
-      balance_after: myPoints.balance - buyPrice,
+      points_after: myProfile.points - buyPrice,
       description: `"${photo.title}" 구매`
     })
 
@@ -276,16 +263,16 @@ if (purchaseError) {
       photo_id: photo.id,
       type: 'sale',
       amount: buyPrice,
-      balance_after: (sellerPoints?.balance || 0) + buyPrice,
+      points_after: (sellerProfile?.points || 0) + buyPrice,
       description: `"${photo.title}" 판매`
     })
 
     success('🎉 구매 완료!')
     
     // 홈으로 리디렉션 (사진 목록 새로고침)
-    //setTimeout(() => {
-    //  window.location.href = '/'
-    //}, 1500)
+    setTimeout(() => {
+      window.location.href = '/'
+    }, 1500)
 
     console.log('=== 구매 프로세스 완료 ===')
 
