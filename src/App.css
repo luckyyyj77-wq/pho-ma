@@ -1,28 +1,97 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { AuthProvider } from './contexts/AuthContext'
-import Home from './pages/Home'
-import Detail from './pages/Detail'
-import Upload from './pages/Upload'
-import Profile from './pages/Profile'
-import Auth from './pages/Auth'
-import Admin from './pages/Admin'
+// src/App.jsx - 라우팅 추가 예시
+
+import { useState, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { supabase } from './lib/supabaseClient'
+import Auth from './components/Auth'
+import Profile from './components/Profile'
+// 기존 컴포넌트들 import
+// import Home from './pages/Home'
+// import Upload from './pages/Upload'
+// import Detail from './pages/Detail'
 
 function App() {
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // 현재 세션 확인
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+      setLoading(false)
+    })
+
+    // 인증 상태 변경 감지
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-4xl">🍜</div>
+      </div>
+    )
+  }
+
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <div className="max-w-md mx-auto bg-background min-h-screen">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/photo/:id" element={<Detail />} />
-            <Route path="/upload" element={<Upload />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/admin" element={<Admin />} />
-          </Routes>
-        </div>
-      </BrowserRouter>
-    </AuthProvider>
+    <BrowserRouter>
+      <Routes>
+        {/* 인증 관련 라우트 */}
+        <Route 
+          path="/auth" 
+          element={user ? <Navigate to="/profile" /> : <Auth />} 
+        />
+        <Route 
+          path="/profile" 
+          element={user ? <Profile /> : <Navigate to="/auth" />} 
+        />
+
+        {/* 기존 라우트들 */}
+        {/* <Route path="/" element={<Home />} /> */}
+        {/* <Route path="/upload" element={<Upload />} /> */}
+        {/* <Route path="/detail/:id" element={<Detail />} /> */}
+
+        {/* 임시 홈 */}
+        <Route path="/" element={
+          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-yellow-50">
+            <div className="text-center">
+              <div className="text-6xl mb-4">🍜</div>
+              <h1 className="text-3xl font-bold mb-4">포마</h1>
+              <p className="text-gray-600 mb-8">내 사진이 돈이 되는 순간</p>
+              <div className="flex gap-4 justify-center">
+                {user ? (
+                  <>
+                    <button
+                      onClick={() => window.location.href = '/profile'}
+                      className="bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 font-semibold"
+                    >
+                      내 정보
+                    </button>
+                    <button
+                      onClick={() => supabase.auth.signOut()}
+                      className="bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 font-semibold"
+                    >
+                      로그아웃
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => window.location.href = '/auth'}
+                    className="bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 font-semibold"
+                  >
+                    시작하기
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        } />
+      </Routes>
+    </BrowserRouter>
   )
 }
 

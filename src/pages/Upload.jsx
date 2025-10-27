@@ -2,7 +2,7 @@
 // 📦 라이브러리 및 컴포넌트 import
 // ============================================
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../lib/supabaseClient'
 import { ArrowLeft, Upload as UploadIcon, X } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { generateImageHash } from '../utils/imageHash'

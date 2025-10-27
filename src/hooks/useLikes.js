@@ -2,7 +2,7 @@
 // ❤️ 좋아요 기능 Hook (완전 수정 버전)
 // ============================================
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../lib/supabaseClient'
 
 export function useLikes(photoId, userId) {
   const [isLiked, setIsLiked] = useState(false)

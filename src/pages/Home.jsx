@@ -2,7 +2,7 @@
 // 📦 라이브러리 및 컴포넌트 import
 // ============================================
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../lib/supabaseClient'
 import { Search, Camera, Home, User, Heart } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 // import { addWatermark } from '../utils/watermark'  // ⬅️ 주석 처리

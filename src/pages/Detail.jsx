@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../lib/supabaseClient'
 import { ArrowLeft, Heart, Clock, Gavel, Zap } from 'lucide-react'
 
 export default function Detail() {

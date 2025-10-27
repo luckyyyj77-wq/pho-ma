@@ -2,7 +2,7 @@
 // 📦 관리자 페이지 - 종합 대시보드
 // ============================================
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../lib/supabaseClient'
 import { 
   ArrowLeft, Check, X, AlertCircle, Image as ImageIcon, Shield,
   BarChart3, Activity, Users, DollarSign, Calendar, Tag, TrendingUp

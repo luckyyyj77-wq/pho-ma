@@ -4,8 +4,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Home from './pages/Home'
 import Detail from './pages/Detail'
 import Upload from './pages/Upload'
-import Profile from './pages/Profile'
-import Auth from './pages/Auth'
+import Profile from './components/Profile'
+import Auth from './components/Auth'
 import Admin from './pages/Admin'
 
 initLanguage()
