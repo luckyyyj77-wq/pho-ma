@@ -5,7 +5,7 @@ import { Mail, Lock, User, Eye, EyeOff, Phone, ArrowLeft, Chrome } from 'lucide-
 import TermsModal from './TermsModal'
 import PrivacyModal from './PrivacyModal'
 
-export default function Auth({ onSuccess }) {
+export default function Auth({ onSuccess, onBack }) {
   const [step, setStep] = useState('select') // 'select', 'google', 'kakao', 'email', 'phone'
   const [emailMode, setEmailMode] = useState('signin') // 'signin' or 'signup'
   const [phoneStep, setPhoneStep] = useState('phone') // 'phone' or 'code'
@@ -13,6 +13,8 @@ export default function Auth({ onSuccess }) {
   const [showPassword, setShowPassword] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
   const [showPrivacy, setShowPrivacy] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [privacyAccepted, setPrivacyAccepted] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -41,6 +43,15 @@ export default function Auth({ onSuccess }) {
       }
     }
   }, [])
+
+  // 약관 스크롤 완료 콜백
+  const handleScrollComplete = (type) => {
+    if (type === 'terms') {
+      setTermsAccepted(true)
+    } else if (type === 'privacy') {
+      setPrivacyAccepted(true)
+    }
+  }
 
   // Google 로그인
   const handleGoogleLogin = async () => {
@@ -209,13 +220,33 @@ export default function Auth({ onSuccess }) {
     setPhoneStep('phone')
   }
 
+  // 인증 버튼 클릭 핸들러
+  const handleAuthButtonClick = (authHandler) => {
+    if (!termsAccepted || !privacyAccepted) {
+      setMessage({ type: 'error', text: '아래의 이용약관과 개인정보처리방침을 확인해주세요.' });
+      return;
+    }
+    authHandler();
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-orange-100 flex items-center justify-center p-4 overflow-hidden">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl">
         
         {/* Step 1: 방식 선택 */}
         {step === 'select' && (
-          <div className="animate-fadeIn">
+          <div className="animate-fadeIn relative">
+            
+            {/* 뒤로가기 버튼 */}
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="absolute top-0 left-0 flex items-center gap-2 text-gray-600 hover:text-orange-600 transition-colors p-2 rounded-lg hover:bg-white/50"
+              >
+                <span className="text-2xl">↩</span>
+              </button>
+            )}
+
             {/* 헤더 */}
             <div className="text-center mb-12">
               <div className="text-7xl mb-6 animate-bounce">🍜</div>
@@ -228,11 +259,11 @@ export default function Auth({ onSuccess }) {
               
               {/* Google */}
               <button
-                onClick={() => {
+                onClick={() => handleAuthButtonClick(() => {
                   setStep('google')
                   handleGoogleLogin()
-                }}
-                disabled={loading}
+                })}
+                disabled={loading || !termsAccepted || !privacyAccepted}
                 className="w-full bg-white hover:bg-gray-50 border-2 border-gray-200 hover:border-blue-400 text-gray-800 font-bold py-5 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-4 text-lg"
               >
                 <svg className="w-7 h-7" viewBox="0 0 24 24">
@@ -246,11 +277,11 @@ export default function Auth({ onSuccess }) {
 
               {/* Kakao */}
               <button
-                onClick={() => {
+                onClick={() => handleAuthButtonClick(() => {
                   setStep('kakao')
                   handleKakaoLogin()
-                }}
-                disabled={loading}
+                })}
+                disabled={loading || !termsAccepted || !privacyAccepted}
                 className="w-full bg-[#FEE500] hover:bg-[#FDD835] text-gray-800 font-bold py-5 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-4 text-lg"
               >
                 <svg className="w-7 h-7" viewBox="0 0 24 24">
@@ -261,8 +292,9 @@ export default function Auth({ onSuccess }) {
 
               {/* Email - 연한 녹색 */}
               <button
-               onClick={() => setStep('email')}
-               className="w-full bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 border-2 border-green-500 text-white font-bold py-5 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center gap-4 text-lg"
+               onClick={() => handleAuthButtonClick(() => setStep('email'))}
+               disabled={loading || !termsAccepted || !privacyAccepted}
+               className="w-full bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 border-2 border-green-500 text-white font-bold py-5 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-4 text-lg"
               >
               <Mail className="w-7 h-7 text-white" />
               이메일로 시작하기
@@ -270,44 +302,67 @@ export default function Auth({ onSuccess }) {
 
               {/* Phone - 연한 주황색 */}
               <button
-                onClick={() => setStep('phone')}
-              className="w-full bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 border-2 border-orange-500 text-white font-bold py-5 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center gap-4 text-lg"
+                onClick={() => handleAuthButtonClick(() => setStep('phone'))}
+                disabled={loading || !termsAccepted || !privacyAccepted}
+              className="w-full bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 border-2 border-orange-500 text-white font-bold py-5 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-4 text-lg"
               >
               <Phone className="w-7 h-7 text-white" />
               전화번호로 시작하기
             </button>
             </div>
 
-            {/* 푸터 */}
-            <p className="text-center text-sm text-gray-500 mt-8">
-              가입 전{' '}
-              <button 
-                onClick={(e) => {
-                  e.preventDefault()
-                  setShowTerms(true)
-                }}
-                className="text-orange-600 hover:text-orange-700 hover:underline font-medium"
-              >
-                이용약관
-              </button>
-              {' '}및{' '}
-              <button 
-                onClick={(e) => {
-                  e.preventDefault()
-                  setShowPrivacy(true)
-                }}
-                className="text-orange-600 hover:text-orange-700 hover:underline font-medium"
-              >
-                개인정보처리방침
-              </button>
-              을 확인해 주세요.
-            </p>
+            {/* 약관 안내 */}
+            <div className="text-center text-sm text-gray-500 mt-8 space-y-2">
+              <p>
+                가입 전{' '}
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setShowTerms(true)
+                  }}
+                  className="text-orange-600 hover:text-orange-700 hover:underline font-medium"
+                >
+                  이용약관
+                </button>
+                {termsAccepted && <span className="text-green-600 ml-1">✓</span>}
+                {' '}및{' '}
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setShowPrivacy(true)
+                  }}
+                  className="text-orange-600 hover:text-orange-700 hover:underline font-medium"
+                >
+                  개인정보처리방침
+                </button>
+                {privacyAccepted && <span className="text-green-600 ml-1">✓</span>}
+                을 확인해 주세요.
+              </p>
+              
+              {/* 로그인 없이 둘러보기 */}
+              {onBack && (
+                <button
+                  onClick={onBack}
+                  className="text-gray-600 hover:text-gray-800 underline font-medium"
+                >
+                  로그인 없이 둘러보기
+                </button>
+              )}
+            </div>
           </div>
         )}
 
         {/* 약관 모달들 */}
-        <TermsModal isOpen={showTerms} onClose={() => setShowTerms(false)} />
-        <PrivacyModal isOpen={showPrivacy} onClose={() => setShowPrivacy(false)} />
+        <TermsModal 
+          isOpen={showTerms} 
+          onClose={() => setShowTerms(false)}
+          onScrollComplete={handleScrollComplete}
+        />
+        <PrivacyModal 
+          isOpen={showPrivacy} 
+          onClose={() => setShowPrivacy(false)}
+          onScrollComplete={handleScrollComplete}
+        />
 
         {/* Step 2: 이메일 입력 */}
         {step === 'email' && (
@@ -336,8 +391,8 @@ export default function Auth({ onSuccess }) {
                 onClick={() => setEmailMode('signin')}
                 className={`flex-1 py-2.5 rounded-lg font-semibold transition-all ${
                   emailMode === 'signin'
-                    ? 'bg-white text-orange-600 shadow-md' 
-                    : 'text-gray-600'
+                    ? 'bg-white text-orange-600 shadow-md'
+                    : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
                 로그인
@@ -346,8 +401,8 @@ export default function Auth({ onSuccess }) {
                 onClick={() => setEmailMode('signup')}
                 className={`flex-1 py-2.5 rounded-lg font-semibold transition-all ${
                   emailMode === 'signup'
-                    ? 'bg-white text-orange-600 shadow-md' 
-                    : 'text-gray-600'
+                    ? 'bg-white text-orange-600 shadow-md'
+                    : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
                 회원가입

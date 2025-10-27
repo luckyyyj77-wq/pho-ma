@@ -244,26 +244,45 @@ export default function PrivacyModal({ isOpen, onClose, onScrollComplete }) {
               </p>
             </div>
 
-            {/* 스크롤 완료 표시 */}
+            {/* 스크롤 완료 버튼 */}
             {hasScrolledToBottom && (
-              <div className="bg-green-50 border-2 border-green-400 p-4 rounded-lg mt-6 text-center">
-                <p className="text-green-700 font-semibold">
+              <button
+                onClick={() => {
+                  if (onScrollComplete) onScrollComplete('privacy')
+                  onClose()
+                }}
+                className="w-full bg-green-50 hover:bg-green-100 border-2 border-green-400 hover:border-green-500 p-4 rounded-lg mt-6 text-center transition-all cursor-pointer"
+              >
+                <p className="text-green-700 font-bold">
                   ✅ 개인정보처리방침을 모두 읽었습니다
                 </p>
-              </div>
+             
+              </button>
             )}
 
           </div>
         </div>
 
         {/* 푸터 */}
-        <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors"
-          >
-            확인
-          </button>
+        <div className="p-4 border-t border-gray-200 bg-gray-50">
+          {hasScrolledToBottom ? (
+            <button
+              onClick={() => {
+                if (onScrollComplete) onScrollComplete('privacy')
+                onClose()
+              }}
+              className="w-full px-6 py-3.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-xl"
+            >
+              ✓ 개인정보처리방침을 확인하였습니다
+            </button>
+          ) : (
+            <button
+              disabled
+              className="w-full px-6 py-3.5 bg-gray-200 text-gray-400 font-semibold rounded-xl cursor-not-allowed"
+            >
+              ⬇️ 끝까지 스크롤해주세요
+            </button>
+          )}
         </div>
       </div>
 
