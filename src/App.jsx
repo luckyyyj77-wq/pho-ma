@@ -7,6 +7,7 @@ import Upload from './pages/Upload'
 import Profile from './components/Profile'
 import Auth from './components/Auth'
 import Admin from './pages/Admin'
+import PointCharge from './pages/PointCharge'
 
 initLanguage()
 
@@ -23,6 +24,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/point-charge" element={<PointCharge />} />
         </Routes>
       </div>
     </BrowserRouter>
