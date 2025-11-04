@@ -1,11 +1,17 @@
-// src/pages/Auth.jsx - 샤인머스켓 테마
+// src/pages/Auth.jsx - 샤인머스켓 테마 + 모달 통합
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { Mail, Lock, User, Sparkles, ArrowRight } from 'lucide-react'
+import TermsModal from '../components/TermsModal'
+import PrivacyModal from '../components/PrivacyModal'
 
 export default function Auth() {
   const [loading, setLoading] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
+  const [showTerms, setShowTerms] = useState(false)
+  const [showPrivacy, setShowPrivacy] = useState(false)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -14,6 +20,13 @@ export default function Auth() {
 
   const handleAuth = async (e) => {
     e.preventDefault()
+
+    // 회원가입 시 약관 동의 확인
+    if (isSignUp && (!agreedToTerms || !agreedToPrivacy)) {
+      alert('이용약관과 개인정보처리방침에 동의해주세요.')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -33,6 +46,8 @@ export default function Auth() {
         alert('회원가입이 완료되었습니다! 로그인해주세요.')
         setIsSignUp(false)
         setFormData({ email: '', password: '', name: '' })
+        setAgreedToTerms(false)
+        setAgreedToPrivacy(false)
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: formData.email,
@@ -143,11 +158,56 @@ export default function Auth() {
               />
             </div>
 
+            {/* 약관 동의 (회원가입 시만) */}
+            {isSignUp && (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="terms"
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    className="mt-1 w-4 h-4 text-[#B3D966] border-gray-300 rounded focus:ring-[#B3D966]"
+                  />
+                  <label htmlFor="terms" className="text-sm text-gray-600 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowTerms(true)}
+                      className="text-[#558B2F] hover:underline font-medium"
+                    >
+                      이용약관
+                    </button>
+                    에 동의합니다 (필수)
+                  </label>
+                </div>
+
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="privacy"
+                    checked={agreedToPrivacy}
+                    onChange={(e) => setAgreedToPrivacy(e.target.checked)}
+                    className="mt-1 w-4 h-4 text-[#B3D966] border-gray-300 rounded focus:ring-[#B3D966]"
+                  />
+                  <label htmlFor="privacy" className="text-sm text-gray-600 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowPrivacy(true)}
+                      className="text-[#558B2F] hover:underline font-medium"
+                    >
+                      개인정보처리방침
+                    </button>
+                    에 동의합니다 (필수)
+                  </label>
+                </div>
+              </div>
+            )}
+
             {/* 제출 버튼 */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-[#B3D966] to-[#9DC183] text-white py-4 rounded-2xl font-bold shadow-xl hover:shadow-2xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-[#B3D966] to-[#9DC183] text-white py-4 rounded-2xl font-bold shadow-xl hover:shadow-2xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
             >
               {loading ? (
                 <div className="flex items-center gap-2">
@@ -184,6 +244,10 @@ export default function Auth() {
           <div className="w-12 h-12 bg-[#8FB573] rounded-full opacity-20 animate-bounce" style={{ animationDelay: '300ms' }}></div>
         </div>
       </div>
+
+      {/* 모달 */}
+      {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
+      {showPrivacy && <PrivacyModal onClose={() => setShowPrivacy(false)} />}
     </div>
   )
 }
