@@ -29,6 +29,7 @@ export default function Upload() {
   // ------------------------------------------
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
+  const [categories, setCategories] = useState([])  // 동적 카테고리
   const [description, setDescription] = useState('')
   const [startPrice, setStartPrice] = useState('')
   const [buyNowPrice, setBuyNowPrice] = useState('')
@@ -52,6 +53,25 @@ export default function Upload() {
     }
   }, [user, authLoading])
 
+  // 카테고리 불러오기
+  useEffect(() => {
+    fetchCategories()
+  }, [])
+
+  const fetchCategories = async () => {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+
+    if (error) {
+      console.error('Error fetching categories:', error)
+    } else {
+      setCategories(data || [])
+    }
+  }
+
 
 
 
@@ -60,10 +80,10 @@ export default function Upload() {
   // ------------------------------------------
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#F1F8E9] via-white to-[#E8F5E9]">
         <div className="text-center">
-          <div className="text-4xl mb-3">🍜</div>
-          <p className="text-gray-500">로딩중...</p>
+          <div className="w-16 h-16 border-4 border-[#B3D966] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">로딩중...</p>
         </div>
       </div>
     )
@@ -200,7 +220,7 @@ console.log('AI 검증 결과:', moderationResult)
       // ------------------------------------------
       const { data: photo, error } = await supabase.from('photos').insert({
         title,
-        category,
+        category_id: category,  // UUID로 저장
         description,
         current_price: parseInt(startPrice),
         buy_now_price: parseInt(buyNowPrice),
@@ -274,16 +294,16 @@ console.log('AI 검증 결과:', moderationResult)
   // 🎨 UI 렌더링
   // ============================================
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gradient-to-br from-[#F1F8E9] via-white to-[#E8F5E9] pb-20">
 
 
       {/* ------------------------------------------
           📌 상단 헤더
       ------------------------------------------ */}
-      <div className="bg-gradient-to-r from-orange-400 to-orange-500 text-white p-4">
+      <div className="bg-gradient-to-r from-[#B3D966] to-[#9DC183] text-white p-4 shadow-lg">
         <button 
           onClick={() => window.location.href = '/'}
-          className="flex items-center gap-2 mb-2"
+          className="flex items-center gap-2 mb-2 hover:bg-white/20 px-3 py-2 rounded-lg transition-colors"
         >
           <ArrowLeft size={20} />
           <span>뒤로</span>
@@ -303,7 +323,7 @@ console.log('AI 검증 결과:', moderationResult)
 
           {/* 이미지 업로드 영역 */}
           <div>
-            <label className="block text-sm font-semibold mb-2">사진</label>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">사진</label>
             <div className="relative">
               {preview ? (
                 <div className="relative">
@@ -314,15 +334,15 @@ console.log('AI 검증 결과:', moderationResult)
                       setImageFile(null)
                       setPreview(null)
                     }}
-                    className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full"
+                    className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
                   >
                     <X size={16} />
                   </button>
                 </div>
               ) : (
-                <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                  <UploadIcon size={48} className="text-gray-400 mb-2" />
-                  <span className="text-sm text-gray-600">클릭해서 사진 선택</span>
+                <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-[#F1F8E9] hover:border-[#B3D966] transition-colors">
+                  <UploadIcon size={48} className="text-[#9DC183] mb-2" />
+                  <span className="text-sm text-gray-600 font-medium">클릭해서 사진 선택</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -342,13 +362,13 @@ console.log('AI 검증 결과:', moderationResult)
 
           {/* 제목 입력 */}
           <div>
-            <label className="block text-sm font-semibold mb-2">제목</label>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">제목</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="예: 서울 남산타워 일몰"
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-[#B3D966] transition-colors"
               required
             />
           </div>
@@ -356,31 +376,34 @@ console.log('AI 검증 결과:', moderationResult)
 
           {/* 카테고리 선택 */}
           <div>
-            <label className="block text-sm font-semibold mb-2">카테고리</label>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">카테고리</label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-[#B3D966] transition-colors"
               required
             >
               <option value="">선택하세요</option>
-              <option value="음식">음식</option>
-              <option value="풍경">풍경</option>
-              <option value="인테리어">인테리어</option>
-              <option value="제품">제품</option>
-              <option value="라이프">라이프</option>
+              {categories
+                .filter(cat => cat.slug !== 'all' && cat.slug !== 'popular' && cat.slug !== 'new')
+                .map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.icon} {cat.name}
+                  </option>
+                ))
+              }
             </select>
           </div>
 
 
           {/* 설명 입력 */}
           <div>
-            <label className="block text-sm font-semibold mb-2">설명</label>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">설명</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="사진에 대한 설명을 입력하세요"
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-[#B3D966] transition-colors resize-none"
               rows="3"
             />
           </div>
@@ -389,25 +412,25 @@ console.log('AI 검증 결과:', moderationResult)
           {/* 가격 설정 */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold mb-2">시작가</label>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">시작가</label>
               <input
                 type="number"
                 value={startPrice}
                 onChange={(e) => setStartPrice(e.target.value)}
                 placeholder="500"
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-[#B3D966] transition-colors"
                 required
               />
               <p className="text-xs text-gray-500 mt-1">500원~10,000원</p>
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-2">즉시구매가</label>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">즉시구매가</label>
               <input
                 type="number"
                 value={buyNowPrice}
                 onChange={(e) => setBuyNowPrice(e.target.value)}
                 placeholder="2000"
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-[#B3D966] transition-colors"
               />
             </div>
           </div>
@@ -420,7 +443,7 @@ console.log('AI 검증 결과:', moderationResult)
                 type="checkbox"
                 checked={agreedToTerms}
                 onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="mt-1 w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
+                className="mt-1 w-4 h-4 text-[#B3D966] rounded focus:ring-[#B3D966] focus:ring-offset-0"
                 required
               />
               <div className="text-sm text-gray-700">
@@ -431,7 +454,7 @@ console.log('AI 검증 결과:', moderationResult)
                   <li>• 구매자의 2차 창작, 블로그/SNS 게시, 광고, 인쇄물 제작 등을 허용합니다</li>
                   <li>• 중복 판매 시 계정 정지 및 법적 책임을 집니다</li>
                   <li>• 판매 후에도 개인적 용도로 사진을 보관할 수 있습니다</li>
-                  <li>• <span className="font-semibold text-orange-600">부적절한 이미지는 자동으로 거부됩니다</span></li>
+                  <li>• <span className="font-semibold text-[#558B2F]">부적절한 이미지는 자동으로 거부됩니다</span></li>
                 </ul>
               </div>
             </label>
@@ -440,9 +463,9 @@ console.log('AI 검증 결과:', moderationResult)
 
           {/* AI 검증 중 메시지 */}
           {moderating && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-              <p className="text-sm text-blue-700 font-medium">{moderationMessage}</p>
+            <div className="bg-[#F1F8E9] border-2 border-[#B3D966] rounded-lg p-4 flex items-center gap-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#558B2F]"></div>
+              <p className="text-sm text-[#558B2F] font-medium">{moderationMessage}</p>
             </div>
           )}
 
@@ -451,7 +474,7 @@ console.log('AI 검증 결과:', moderationResult)
           <button
             type="submit"
             disabled={uploading || moderating || !agreedToTerms}
-            className="w-full bg-orange-500 text-white py-3 rounded-lg font-semibold hover:bg-orange-600 disabled:bg-gray-300 transition-colors"
+            className="w-full bg-gradient-to-r from-[#B3D966] to-[#9DC183] text-white py-3 rounded-lg font-bold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {moderating ? '검증 중...' : uploading ? '업로드 중...' : '등록하기'}
           </button>

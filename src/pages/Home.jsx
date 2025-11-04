@@ -1,7 +1,7 @@
 // src/pages/Home.jsx - 샤인머스켓 테마 + 햄버거 메뉴 + 2열 + 무한 스크롤
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { Search, Plus, Heart, TrendingUp, Sparkles, Menu, X, Home as HomeIcon, Upload as UploadIcon, User, CreditCard, Settings, LogOut, Loader } from 'lucide-react'
+import { Search, Plus, Heart, TrendingUp, Sparkles, Menu, X, Home as HomeIcon, Upload as UploadIcon, User, CreditCard, MessageSquare, LogOut, Loader } from 'lucide-react'
 
 export default function Home() {
   const [photos, setPhotos] = useState([])
@@ -12,6 +12,8 @@ export default function Home() {
   const [user, setUser] = useState(null)
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(0)
+  const [categories, setCategories] = useState([])  // 동적 카테고리
+  const [selectedCategory, setSelectedCategory] = useState('all')  // 선택된 카테고리
   const observerTarget = useRef(null)
 
   const ITEMS_PER_PAGE = 20
@@ -19,7 +21,15 @@ export default function Home() {
   useEffect(() => {
     fetchPhotos(true)
     checkUser()
+    fetchCategories()  // 카테고리 불러오기
   }, [])
+
+  // 카테고리 변경 시 사진 다시 불러오기
+  useEffect(() => {
+    if (categories.length > 0) {
+      fetchPhotos(true)
+    }
+  }, [selectedCategory])
 
   // 무한 스크롤 감지
   useEffect(() => {
@@ -48,6 +58,20 @@ export default function Home() {
     setUser(user)
   }
 
+  const fetchCategories = async () => {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+
+    if (error) {
+      console.error('Error fetching categories:', error)
+    } else {
+      setCategories(data || [])
+    }
+  }
+
   const fetchPhotos = async (isInitial = false) => {
     if (isInitial) {
       setLoading(true)
@@ -59,11 +83,22 @@ export default function Home() {
     const from = isInitial ? 0 : (page + 1) * ITEMS_PER_PAGE
     const to = from + ITEMS_PER_PAGE - 1
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('photos')
       .select('*')
       .order('created_at', { ascending: false })
       .range(from, to)
+
+    // 카테고리 필터 적용
+    if (selectedCategory && selectedCategory !== 'all') {
+      // category_id로 필터 (UUID)
+      const categoryData = categories.find(c => c.slug === selectedCategory)
+      if (categoryData) {
+        query = query.eq('category_id', categoryData.id)
+      }
+    }
+
+    const { data, error } = await query
 
     if (error) {
       console.error('Error fetching photos:', error)
@@ -148,12 +183,17 @@ export default function Home() {
       {/* 카테고리 태그 */}
       <div className="max-w-7xl mx-auto px-4 py-4 overflow-x-auto">
         <div className="flex gap-2 pb-2">
-          {['전체', '인기', '신규', '풍경', '인물', '음식', '동물'].map((tag) => (
+          {categories.map((category) => (
             <button
-              key={tag}
-              className="px-4 py-2 bg-white rounded-full text-sm font-semibold text-gray-700 hover:bg-[#B3D966] hover:text-white transition-all whitespace-nowrap shadow-md"
+              key={category.id}
+              onClick={() => setSelectedCategory(category.slug)}
+              className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap shadow-md transition-all ${
+                selectedCategory === category.slug
+                  ? 'bg-[#B3D966] text-white'
+                  : 'bg-white text-gray-700 hover:bg-[#B3D966] hover:text-white'
+              }`}
             >
-              {tag}
+              {category.icon} {category.name}
             </button>
           ))}
         </div>
@@ -192,9 +232,9 @@ export default function Home() {
                 >
                   <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-1">
                     {/* 이미지 */}
-                    {photo.image_url ? (
+                    {photo.preview_url ? (
                       <img
-                        src={photo.image_url}
+                        src={photo.preview_url}
                         alt={photo.title}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                       />
@@ -370,13 +410,13 @@ export default function Home() {
 
               <button
                 onClick={() => {
-                  window.location.href = '/admin'
+                  window.location.href = '/community'
                   setMenuOpen(false)
                 }}
                 className="w-full flex items-center gap-4 px-6 py-4 hover:bg-[#F1F8E9] transition-colors"
               >
-                <Settings size={24} className="text-[#558B2F]" />
-                <span className="font-semibold text-gray-800">관리자</span>
+                <MessageSquare size={24} className="text-[#558B2F]" />
+                <span className="font-semibold text-gray-800">커뮤니티 게시판</span>
               </button>
 
               <div className="border-t border-gray-200 my-2"></div>
@@ -397,7 +437,8 @@ export default function Home() {
       )}
 
       {/* CSS 애니메이션 */}
-      <style jsx>{`
+      <style>
+        {`
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
@@ -419,7 +460,8 @@ export default function Home() {
         .animate-slideInLeft {
           animation: slideInLeft 0.3s ease-out;
         }
-      `}</style>
+        `}
+      </style>
     </div>
   )
 }

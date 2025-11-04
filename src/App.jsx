@@ -1,4 +1,4 @@
-// src/App.jsx - 최종 통합 버전
+// src/App.jsx - 최종 통합 버전 (커뮤니티 추가)
 import { useState, useEffect } from 'react'
 import { AuthProvider } from './contexts/AuthContext'
 import { initLanguage } from './locales'
@@ -11,6 +11,7 @@ import Profile from './components/Profile'
 import Auth from './components/Auth'
 import Admin from './pages/Admin'
 import PointCharge from './pages/PointCharge'
+import Community from './pages/Community'
 
 initLanguage()
 
@@ -48,6 +49,7 @@ function App() {
             <Route path="/auth" element={<Auth />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/point-charge" element={<PointCharge />} />
+            <Route path="/community" element={<Community />} />
           </Routes>
         </div>
       </BrowserRouter>
