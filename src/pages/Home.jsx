@@ -1,30 +1,102 @@
-// src/pages/Home.jsx - 샤인머스켓 테마
-import { useState, useEffect } from 'react'
+// src/pages/Home.jsx - 샤인머스켓 테마 + 햄버거 메뉴 + 2열 + 무한 스크롤
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { Search, Plus, Heart, TrendingUp, Sparkles } from 'lucide-react'
+import { Search, Plus, Heart, TrendingUp, Sparkles, Menu, X, Home as HomeIcon, Upload as UploadIcon, User, CreditCard, Settings, LogOut, Loader } from 'lucide-react'
 
 export default function Home() {
   const [photos, setPhotos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [user, setUser] = useState(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [page, setPage] = useState(0)
+  const observerTarget = useRef(null)
+
+  const ITEMS_PER_PAGE = 20
 
   useEffect(() => {
-    fetchPhotos()
+    fetchPhotos(true)
+    checkUser()
   }, [])
 
-  const fetchPhotos = async () => {
+  // 무한 스크롤 감지
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          loadMore()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current)
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current)
+      }
+    }
+  }, [hasMore, loadingMore, loading])
+
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    setUser(user)
+  }
+
+  const fetchPhotos = async (isInitial = false) => {
+    if (isInitial) {
+      setLoading(true)
+      setPage(0)
+    } else {
+      setLoadingMore(true)
+    }
+
+    const from = isInitial ? 0 : (page + 1) * ITEMS_PER_PAGE
+    const to = from + ITEMS_PER_PAGE - 1
+
     const { data, error } = await supabase
       .from('photos')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(20)
+      .range(from, to)
 
     if (error) {
       console.error('Error fetching photos:', error)
     } else {
-      setPhotos(data || [])
+      if (isInitial) {
+        setPhotos(data || [])
+      } else {
+        setPhotos(prev => [...prev, ...(data || [])])
+      }
+      
+      // 더 이상 데이터가 없으면
+      if (!data || data.length < ITEMS_PER_PAGE) {
+        setHasMore(false)
+      }
+
+      if (!isInitial) {
+        setPage(prev => prev + 1)
+      }
     }
+
     setLoading(false)
+    setLoadingMore(false)
+  }
+
+  const loadMore = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      fetchPhotos(false)
+    }
+  }, [loadingMore, hasMore, page])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    window.location.href = '/auth'
   }
 
   const filteredPhotos = photos.filter(photo =>
@@ -40,7 +112,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 py-4">
           
           {/* 로고 & 타이틀 */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-center mb-4">
             <div className="flex items-center gap-3">
               {/* 작은 로고 */}
               <svg width="40" height="41" viewBox="0 0 326 335" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-lg">
@@ -57,15 +129,6 @@ export default function Home() {
                 <p className="text-xs text-white/80">신선한 사진들</p>
               </div>
             </div>
-            
-            {/* 업로드 버튼 */}
-            <button
-              onClick={() => window.location.href = '/upload'}
-              className="bg-white text-[#558B2F] px-4 py-2 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-            >
-              <Plus size={20} />
-              <span className="hidden sm:inline">업로드</span>
-            </button>
           </div>
 
           {/* 검색 바 */}
@@ -96,7 +159,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 사진 그리드 */}
+      {/* 사진 그리드 - 2열로 변경 */}
       <div className="max-w-7xl mx-auto px-4">
         {loading ? (
           <div className="flex items-center justify-center py-20">
@@ -118,61 +181,82 @@ export default function Home() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredPhotos.map((photo) => (
-              <div
-                key={photo.id}
-                onClick={() => window.location.href = `/photo/${photo.id}`}
-                className="group cursor-pointer"
-              >
-                <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-1">
-                  {/* 이미지 */}
-                  {photo.image_url ? (
-                    <img
-                      src={photo.image_url}
-                      alt={photo.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-[#C8E6C9] to-[#A5D6A7] flex items-center justify-center">
-                      <Sparkles size={48} className="text-white/50" />
-                    </div>
-                  )}
+          <>
+            {/* 2열 그리드 */}
+            <div className="grid grid-cols-2 gap-4">
+              {filteredPhotos.map((photo) => (
+                <div
+                  key={photo.id}
+                  onClick={() => window.location.href = `/photo/${photo.id}`}
+                  className="group cursor-pointer"
+                >
+                  <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-1">
+                    {/* 이미지 */}
+                    {photo.image_url ? (
+                      <img
+                        src={photo.image_url}
+                        alt={photo.title}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-[#C8E6C9] to-[#A5D6A7] flex items-center justify-center">
+                        <Sparkles size={48} className="text-white/50" />
+                      </div>
+                    )}
 
-                  {/* 그라데이션 오버레이 */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    {/* 그라데이션 오버레이 */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
-                  {/* 좋아요 버튼 */}
-                  <button className="absolute top-3 right-3 p-2 bg-white/90 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white">
-                    <Heart size={18} className="text-[#B3D966]" />
-                  </button>
+                    {/* 좋아요 버튼 */}
+                    <button className="absolute top-3 right-3 p-2 bg-white/90 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white">
+                      <Heart size={18} className="text-[#B3D966]" />
+                    </button>
 
-                  {/* 정보 */}
-                  <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform translate-y-full group-hover:translate-y-0 transition-transform">
-                    <h3 className="font-bold text-lg mb-1 line-clamp-1">{photo.title}</h3>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-white/90">{photo.price?.toLocaleString()}P</p>
-                      <TrendingUp size={16} className="text-[#B3D966]" />
+                    {/* 정보 */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform translate-y-full group-hover:translate-y-0 transition-transform">
+                      <h3 className="font-bold text-lg mb-1 line-clamp-1">{photo.title}</h3>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-white/90">{photo.price?.toLocaleString()}P</p>
+                        <TrendingUp size={16} className="text-[#B3D966]" />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+
+            {/* 무한 스크롤 로딩 인디케이터 */}
+            <div ref={observerTarget} className="flex justify-center py-8">
+              {loadingMore && (
+                <div className="flex items-center gap-2 text-[#558B2F]">
+                  <Loader size={24} className="animate-spin" />
+                  <span className="font-semibold">더 불러오는 중...</span>
+                </div>
+              )}
+              {!hasMore && photos.length > 0 && (
+                <p className="text-gray-400 text-sm">모든 사진을 불러왔어요 🍇</p>
+              )}
+            </div>
+          </>
         )}
       </div>
 
       {/* 하단 네비게이션 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-2xl">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-2xl z-20">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex justify-around items-center">
-            <button className="flex flex-col items-center gap-1 text-[#B3D966]">
-              <div className="p-2 bg-[#B3D966]/10 rounded-xl">
-                <Search size={24} />
+            {/* 햄버거 버튼 */}
+            <button 
+              onClick={() => setMenuOpen(true)}
+              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#B3D966] transition-colors"
+            >
+              <div className="p-2 hover:bg-[#B3D966]/10 rounded-xl transition-colors">
+                <Menu size={24} />
               </div>
-              <span className="text-xs font-semibold">홈</span>
+              <span className="text-xs font-semibold">메뉴</span>
             </button>
             
+            {/* 업로드 */}
             <button
               onClick={() => window.location.href = '/upload'}
               className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#B3D966] transition-colors"
@@ -183,6 +267,7 @@ export default function Home() {
               <span className="text-xs font-semibold">업로드</span>
             </button>
             
+            {/* 프로필 */}
             <button
               onClick={() => window.location.href = '/profile'}
               className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#B3D966] transition-colors"
@@ -198,6 +283,143 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* 햄버거 메뉴 사이드바 */}
+      {menuOpen && (
+        <>
+          {/* 배경 오버레이 */}
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 animate-fadeIn"
+            onClick={() => setMenuOpen(false)}
+          ></div>
+
+          {/* 사이드바 */}
+          <div className="fixed left-0 top-0 h-full w-80 bg-white shadow-2xl z-50 animate-slideInLeft">
+            {/* 헤더 */}
+            <div className="bg-gradient-to-r from-[#B3D966] to-[#9DC183] p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <svg width="40" height="41" viewBox="0 0 326 335" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M200 128.171C200 183.399 155.228 228.171 100 228.171C44.7715 228.171 0 183.399 0 128.171C0 72.9422 44.7715 28.1707 100 28.1707C155.228 28.1707 200 72.9422 200 128.171Z" fill="#D9D9D9"/>
+                    <path d="M192 127.671C192 178.757 150.586 220.171 99.5 220.171C48.4137 220.171 7 178.757 7 127.671C7 76.5844 48.4137 35.1707 99.5 35.1707C150.586 35.1707 192 76.5844 192 127.671Z" fill="white"/>
+                    <path d="M261 234.171C261 289.399 216.228 334.171 161 334.171C105.772 334.171 61 289.399 61 234.171C61 178.942 105.772 134.171 161 134.171C216.228 134.171 261 178.942 261 234.171Z" fill="#D9D9D9"/>
+                    <path d="M253 233.671C253 284.757 211.586 326.171 160.5 326.171C109.414 326.171 68 284.757 68 233.671C68 182.584 109.414 141.171 160.5 141.171C211.586 141.171 253 182.584 253 233.671Z" fill="white"/>
+                    <path d="M326 135.171C326 190.399 281.228 235.171 226 235.171C170.772 235.171 126 190.399 126 135.171C126 79.9422 170.772 35.1707 226 35.1707C281.228 35.1707 326 79.9422 326 135.171Z" fill="#D9D9D9"/>
+                    <path d="M318 134.671C318 185.757 276.586 227.171 225.5 227.171C174.414 227.171 133 185.757 133 134.671C133 83.5844 174.414 42.1707 225.5 42.1707C276.586 42.1707 318 83.5844 318 134.671Z" fill="white"/>
+                    <path d="M148.5 20.0008C147.119 17.6094 147.939 14.5514 150.33 13.1707L171.981 0.670708C174.372 -0.710004 177.43 0.109372 178.811 2.50083L191.311 24.1515C192.692 26.5429 191.872 29.6009 189.481 30.9816L167.83 43.4816C165.439 44.8623 162.381 44.0429 161 41.6515L148.5 20.0008Z" fill="#C96464"/>
+                  </svg>
+                  <h2 className="text-2xl font-black text-white">포마</h2>
+                </div>
+                <button
+                  onClick={() => setMenuOpen(false)}
+                  className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              {user && (
+                <p className="text-white/90 text-sm">{user.email}</p>
+              )}
+            </div>
+
+            {/* 메뉴 아이템 */}
+            <div className="py-4">
+              <button
+                onClick={() => {
+                  window.location.href = '/'
+                  setMenuOpen(false)
+                }}
+                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-[#F1F8E9] transition-colors"
+              >
+                <HomeIcon size={24} className="text-[#558B2F]" />
+                <span className="font-semibold text-gray-800">홈</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  window.location.href = '/upload'
+                  setMenuOpen(false)
+                }}
+                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-[#F1F8E9] transition-colors"
+              >
+                <UploadIcon size={24} className="text-[#558B2F]" />
+                <span className="font-semibold text-gray-800">업로드</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  window.location.href = '/profile'
+                  setMenuOpen(false)
+                }}
+                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-[#F1F8E9] transition-colors"
+              >
+                <User size={24} className="text-[#558B2F]" />
+                <span className="font-semibold text-gray-800">프로필</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  window.location.href = '/point-charge'
+                  setMenuOpen(false)
+                }}
+                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-[#F1F8E9] transition-colors"
+              >
+                <CreditCard size={24} className="text-[#558B2F]" />
+                <span className="font-semibold text-gray-800">포인트 충전</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  window.location.href = '/admin'
+                  setMenuOpen(false)
+                }}
+                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-[#F1F8E9] transition-colors"
+              >
+                <Settings size={24} className="text-[#558B2F]" />
+                <span className="font-semibold text-gray-800">관리자</span>
+              </button>
+
+              <div className="border-t border-gray-200 my-2"></div>
+
+              <button
+                onClick={() => {
+                  handleLogout()
+                  setMenuOpen(false)
+                }}
+                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-red-50 transition-colors text-red-600"
+              >
+                <LogOut size={24} />
+                <span className="font-semibold">로그아웃</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* CSS 애니메이션 */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes slideInLeft {
+          from {
+            transform: translateX(-100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out;
+        }
+
+        .animate-slideInLeft {
+          animation: slideInLeft 0.3s ease-out;
+        }
+      `}</style>
     </div>
   )
 }

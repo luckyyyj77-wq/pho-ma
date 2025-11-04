@@ -1,14 +1,18 @@
-// src/App.jsx - 스플래시 화면 추가
+// src/App.jsx - 최종 통합 버전
 import { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
+import { initLanguage } from './locales'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Splash from './components/Splash'
 import Home from './pages/Home'
 import Detail from './pages/Detail'
 import Upload from './pages/Upload'
 import Profile from './components/Profile'
-import Auth from './pages/Auth'
+import Auth from './components/Auth'
 import Admin from './pages/Admin'
-//import PointCharge from './pages/PointCharge'
+import PointCharge from './pages/PointCharge'
+
+initLanguage()
 
 function App() {
   const [showSplash, setShowSplash] = useState(true)
@@ -33,17 +37,21 @@ function App() {
 
   // 메인 앱
   return (
-    <Router>
-  <Routes>
-    <Route path="/" element={<Home />} />
-    <Route path="/photo/:id" element={<Detail />} />
-    <Route path="/upload" element={<Upload />} />
-    <Route path="/profile" element={<Profile />} />
-    <Route path="/auth" element={<Auth />} />
-    <Route path="/admin" element={<Admin />} />
-    {/* <Route path="/point-charge" element={<PointCharge />} /> */}
-  </Routes>
-</Router>
+    <AuthProvider>
+      <BrowserRouter>
+        <div className="max-w-md mx-auto bg-background min-h-screen">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/photo/:id" element={<Detail />} />
+            <Route path="/upload" element={<Upload />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/point-charge" element={<PointCharge />} />
+          </Routes>
+        </div>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
 
