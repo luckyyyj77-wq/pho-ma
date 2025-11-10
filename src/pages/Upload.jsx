@@ -3,10 +3,11 @@
 // ============================================
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { ArrowLeft, Upload as UploadIcon, X } from 'lucide-react'
+import { ArrowLeft, Upload as UploadIcon, X, AlertCircle } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { generateImageHash } from '../utils/imageHash'
 import { performImageModeration } from '../utils/imageModeration'  // ← AI 검증 추가!
+import { validatePhotoTitle } from '../utils/profanityFilter'
 
 
 
@@ -38,6 +39,7 @@ export default function Upload() {
   const [uploading, setUploading] = useState(false)
   const [moderating, setModerating] = useState(false)  // AI 검증 중
   const [moderationMessage, setModerationMessage] = useState('')  // 검증 메시지
+  const [titleError, setTitleError] = useState('')  // 욕설 필터링 에러
   const [agreedToTerms, setAgreedToTerms] = useState(false)
 
 
@@ -103,6 +105,20 @@ export default function Upload() {
     }
   }
 
+  // 제목 입력 핸들러 (욕설 필터링)
+const handleTitleChange = (e) => {
+  const value = e.target.value
+  setTitle(value)
+  
+  // 실시간 욕설 검증
+  if (value.length > 0) {
+    const validation = validatePhotoTitle(value)
+    setTitleError(validation.isValid ? '' : validation.message)
+  } else {
+    setTitleError('')
+  }
+}
+
 
 
 
@@ -112,6 +128,14 @@ export default function Upload() {
   async function handleSubmit(e) {
     e.preventDefault()
     setUploading(true)
+
+    // 제목 욕설 검증
+  const titleValidation = validatePhotoTitle(title)
+  if (!titleValidation.isValid) {
+    alert(titleValidation.message)
+    setUploading(false)
+    return
+  }
 
     let hash = null
     let fileName = null
@@ -363,14 +387,24 @@ console.log('AI 검증 결과:', moderationResult)
           {/* 제목 입력 */}
           <div>
             <label className="block text-sm font-semibold mb-2 text-gray-700">제목</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="예: 서울 남산타워 일몰"
-              className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-[#B3D966] transition-colors"
-              required
-            />
+<input
+  type="text"
+  value={title}
+  onChange={handleTitleChange}
+  placeholder="예: 서울 남산타워 일몰"
+  className={`w-full px-4 py-2 border-2 rounded-lg focus:outline-none transition-colors ${
+    titleError 
+      ? 'border-red-300 focus:border-red-500' 
+      : 'border-gray-200 focus:border-[#B3D966]'
+  }`}
+  required
+/>
+{titleError && (
+  <div className="flex items-center gap-1 mt-1">
+    <AlertCircle size={14} className="text-red-500" />
+    <p className="text-xs text-red-500">{titleError}</p>
+  </div>
+)}
           </div>
 
 

@@ -1,5 +1,6 @@
-// src/pages/Community.jsx - 커뮤니티 게시판 with 글쓰기 기능
+// src/pages/Community.jsx - 커뮤니티 게시판 (이미지 자동 압축 + 욕설 필터링)
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { 
   MessageSquare, 
@@ -11,10 +12,13 @@ import {
   Heart,
   MessageCircle,
   Clock,
-  Loader
+  Loader,
+  AlertCircle
 } from 'lucide-react'
+import { validateContent, validatePhotoTitle } from '../utils/profanityFilter'
 
 export default function Community() {
+  const navigate = useNavigate()
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
@@ -26,6 +30,10 @@ export default function Community() {
   const [image, setImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [uploading, setUploading] = useState(false)
+  
+  // 필터링 에러 상태
+  const [titleError, setTitleError] = useState('')
+  const [contentError, setContentError] = useState('')
 
   useEffect(() => {
     checkUser()
@@ -40,7 +48,6 @@ export default function Community() {
   const fetchPosts = async () => {
     setLoading(true)
     
-    // 1. 먼저 게시글 가져오기
     const { data: postsData, error: postsError } = await supabase
       .from('community_posts')
       .select('*')
@@ -52,7 +59,6 @@ export default function Community() {
       return
     }
 
-    // 2. 각 게시글의 작성자 정보 가져오기
     const postsWithProfiles = await Promise.all(
       (postsData || []).map(async (post) => {
         const { data: profile } = await supabase
@@ -72,17 +78,61 @@ export default function Community() {
     setLoading(false)
   }
 
-  // 이미지 선택 핸들러
-  const handleImageSelect = (e) => {
-    const file = e.target.files[0]
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert('이미지 크기는 5MB 이하여야 합니다.')
-        return
+  // 이미지 자동 압축 (모바일 최적화)
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = (e) => {
+        const img = new Image()
+        img.src = e.target.result
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+          
+          // 모바일 최적화: 최대 1280px
+          let width = img.width
+          let height = img.height
+          const maxSize = 1280
+          
+          if (width > height && width > maxSize) {
+            height = (height * maxSize) / width
+            width = maxSize
+          } else if (height > maxSize) {
+            width = (width * maxSize) / height
+            height = maxSize
+          }
+          
+          canvas.width = width
+          canvas.height = height
+          ctx.drawImage(img, 0, 0, width, height)
+          
+          // 최대 압축 (품질 0.7)
+          canvas.toBlob(
+            (blob) => {
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now()
+              })
+              resolve(compressedFile)
+            },
+            'image/jpeg',
+            0.7
+          )
+        }
       }
-      setImage(file)
-      setImagePreview(URL.createObjectURL(file))
-    }
+    })
+  }
+
+  // 이미지 선택 핸들러
+  const handleImageSelect = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    
+    // 자동 압축
+    const compressed = await compressImage(file)
+    setImage(compressed)
+    setImagePreview(URL.createObjectURL(compressed))
   }
 
   // 이미지 제거
@@ -91,12 +141,53 @@ export default function Community() {
     setImagePreview(null)
   }
 
+  // 제목 입력 핸들러 (욕설 필터링 추가)
+  const handleTitleChange = (e) => {
+    const value = e.target.value
+    setTitle(value)
+    
+    // 실시간 욕설 검증
+    if (value.length > 0) {
+      const validation = validatePhotoTitle(value)
+      setTitleError(validation.isValid ? '' : validation.message)
+    } else {
+      setTitleError('')
+    }
+  }
+
+  // 내용 입력 핸들러 (욕설 필터링 추가)
+  const handleContentChange = (e) => {
+    const value = e.target.value
+    setContent(value)
+    
+    // 실시간 욕설 검증
+    if (value.length > 0) {
+      const validation = validateContent(value, 1, 2000)
+      setContentError(validation.isValid ? '' : validation.message)
+    } else {
+      setContentError('')
+    }
+  }
+
   // 글 작성 핸들러
   const handleSubmitPost = async (e) => {
     e.preventDefault()
 
     if (!title.trim() || !content.trim()) {
       alert('제목과 내용을 입력해주세요.')
+      return
+    }
+
+    // 최종 욕설 검증
+    const titleValidation = validatePhotoTitle(title)
+    if (!titleValidation.isValid) {
+      alert(titleValidation.message)
+      return
+    }
+
+    const contentValidation = validateContent(content, 1, 2000)
+    if (!contentValidation.isValid) {
+      alert(contentValidation.message)
       return
     }
 
@@ -146,6 +237,8 @@ export default function Community() {
       setImage(null)
       setImagePreview(null)
       setShowWriteModal(false)
+      setTitleError('')
+      setContentError('')
       
       // 게시글 목록 새로고침
       fetchPosts()
@@ -163,7 +256,7 @@ export default function Community() {
   const formatDate = (dateString) => {
     const date = new Date(dateString)
     const now = new Date()
-    const diff = Math.floor((now - date) / 1000) // 초 단위
+    const diff = Math.floor((now - date) / 1000)
 
     if (diff < 60) return '방금 전'
     if (diff < 3600) return `${Math.floor(diff / 60)}분 전`
@@ -232,6 +325,7 @@ export default function Community() {
             {posts.map((post) => (
               <div
                 key={post.id}
+                onClick={() => navigate(`/community/${post.id}`)}
                 className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all overflow-hidden cursor-pointer"
               >
                 <div className="flex gap-3 p-3">
@@ -309,6 +403,8 @@ export default function Community() {
                   setTitle('')
                   setContent('')
                   removeImage()
+                  setTitleError('')
+                  setContentError('')
                 }}
                 className="p-2 hover:bg-white/20 rounded-lg transition-colors"
               >
@@ -326,15 +422,26 @@ export default function Community() {
                 <input
                   type="text"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={handleTitleChange}
                   placeholder="제목을 입력하세요"
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#B3D966] focus:outline-none transition-colors"
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                    titleError 
+                      ? 'border-red-300 focus:border-red-500' 
+                      : 'border-gray-200 focus:border-[#B3D966]'
+                  }`}
                   maxLength={100}
                   disabled={uploading}
                 />
-                <p className="text-xs text-gray-500 mt-1 text-right">
-                  {title.length}/100
-                </p>
+                {titleError ? (
+                  <div className="flex items-center gap-1 mt-1">
+                    <AlertCircle size={14} className="text-red-500" />
+                    <p className="text-xs text-red-500">{titleError}</p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-1 text-right">
+                    {title.length}/100
+                  </p>
+                )}
               </div>
 
               {/* 내용 입력 */}
@@ -344,16 +451,27 @@ export default function Community() {
                 </label>
                 <textarea
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
+                  onChange={handleContentChange}
                   placeholder="내용을 입력하세요"
                   rows={8}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#B3D966] focus:outline-none transition-colors resize-none"
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors resize-none ${
+                    contentError 
+                      ? 'border-red-300 focus:border-red-500' 
+                      : 'border-gray-200 focus:border-[#B3D966]'
+                  }`}
                   maxLength={2000}
                   disabled={uploading}
                 />
-                <p className="text-xs text-gray-500 mt-1 text-right">
-                  {content.length}/2000
-                </p>
+                {contentError ? (
+                  <div className="flex items-center gap-1 mt-1">
+                    <AlertCircle size={14} className="text-red-500" />
+                    <p className="text-xs text-red-500">{contentError}</p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-1 text-right">
+                    {content.length}/2000
+                  </p>
+                )}
               </div>
 
               {/* 이미지 첨부 */}
@@ -386,7 +504,7 @@ export default function Community() {
                         클릭하여 이미지 선택
                       </p>
                       <p className="text-xs text-gray-400">
-                        최대 5MB, JPG/PNG
+                        JPG/PNG (자동 압축)
                       </p>
                     </div>
                     <input
@@ -403,13 +521,13 @@ export default function Community() {
               {/* 제출 버튼 */}
               <button
                 type="submit"
-                disabled={uploading || !title.trim() || !content.trim()}
+                disabled={uploading || !title.trim() || !content.trim() || titleError || contentError}
                 className="w-full bg-gradient-to-r from-[#B3D966] to-[#9DC183] text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {uploading ? (
                   <>
                     <Loader size={20} className="animate-spin" />
-                    <span>작성 중...</span>
+                    <span>등록 중...</span>
                   </>
                 ) : (
                   <>

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { Search, Plus, Heart, TrendingUp, Sparkles, Menu, X, Home as HomeIcon, Upload as UploadIcon, User, CreditCard, MessageSquare, LogOut, Loader } from 'lucide-react'
+import Timer from '../components/Timer'
 
 export default function Home() {
   const [photos, setPhotos] = useState([])
@@ -19,17 +20,18 @@ export default function Home() {
   const ITEMS_PER_PAGE = 20
 
   useEffect(() => {
-    fetchPhotos(true)
     checkUser()
     fetchCategories()  // 카테고리 불러오기
   }, [])
 
   // 카테고리 변경 시 사진 다시 불러오기
   useEffect(() => {
-    if (categories.length > 0) {
-      fetchPhotos(true)
+    // 카테고리가 아직 로드되지 않은 상태에서 특정 카테고리 조회를 방지
+    if (selectedCategory !== 'all' && categories.length === 0) {
+      return;
     }
-  }, [selectedCategory])
+    fetchPhotos(true)
+  }, [selectedCategory, categories])
 
   // 무한 스크롤 감지
   useEffect(() => {
@@ -85,7 +87,7 @@ export default function Home() {
 
     let query = supabase
       .from('photos')
-      .select('*')
+      .select('*, end_time')
       .order('created_at', { ascending: false })
       .range(from, to)
 
@@ -134,10 +136,15 @@ export default function Home() {
     window.location.href = '/auth'
   }
 
-  const filteredPhotos = photos.filter(photo =>
-    photo.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    photo.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredPhotos = searchQuery
+    ? photos.filter(photo => {
+        const lowercasedQuery = searchQuery.toLowerCase()
+        return (
+          (photo.title && photo.title.toLowerCase().includes(lowercasedQuery)) ||
+          (photo.description && photo.description.toLowerCase().includes(lowercasedQuery))
+        )
+      })
+    : photos
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F1F8E9] via-white to-[#E8F5E9] pb-24">
@@ -259,6 +266,10 @@ export default function Home() {
                         <p className="text-sm text-white/90">{photo.price?.toLocaleString()}P</p>
                         <TrendingUp size={16} className="text-[#B3D966]" />
                       </div>
+                      {/* 타이머 추가 */}
+  <div className="bg-black/30 rounded-lg px-2 py-1">
+    <Timer endTime={photo.end_time} compact={true} />
+  </div>
                     </div>
                   </div>
                 </div>

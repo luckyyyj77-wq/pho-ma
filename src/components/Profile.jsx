@@ -1,4 +1,4 @@
-// src/components/Profile.jsx - 샤인머스켓 테마
+// src/components/Profile.jsx - 샤인머스켓 테마 (실제 데이터 연동)
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { LogOut, User, Mail, Calendar, Sparkles, Upload, Home, CreditCard, Award } from 'lucide-react'
@@ -7,6 +7,12 @@ export default function Profile() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
+    uploads: 0,
+    purchases: 0,
+    likes: 0
+  })
+  const [statsLoading, setStatsLoading] = useState(false)
 
   useEffect(() => {
     const getUser = async () => {
@@ -45,6 +51,9 @@ export default function Profile() {
           } else {
             setProfile(profileData)
           }
+
+          // 통계 데이터 가져오기
+          await fetchStats(user.id)
         }
       } catch (error) {
         console.error('유저 정보 가져오기 에러:', error)
@@ -57,10 +66,65 @@ export default function Profile() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
+      if (session?.user) {
+        fetchStats(session.user.id)
+      }
     })
 
     return () => subscription.unsubscribe()
   }, [])
+
+  const fetchStats = async (userId) => {
+    console.log('🔄 통계 새로고침 시작...', userId)
+    setStatsLoading(true)
+    
+    try {
+      // 1. 업로드한 사진 수
+      const { count: uploadsCount, error: uploadsError } = await supabase
+        .from('photos')
+        .select('*', { count: 'exact', head: true })
+        .eq('seller_id', userId)
+
+      console.log('📤 업로드 수:', uploadsCount, uploadsError ? '❌ 에러: ' + uploadsError.message : '✅')
+
+      // 2. 구매한 사진 수 (낙찰받은 것)
+      const { count: purchasesCount, error: purchasesError } = await supabase
+        .from('bids')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('status', 'won')
+
+      console.log('💰 구매 수:', purchasesCount, purchasesError ? '❌ 에러: ' + purchasesError.message : '✅')
+
+      // 3. 좋아요 수 (사용자가 좋아요한 사진 수)
+      const { count: likesCount, error: likesError } = await supabase
+        .from('likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+
+      console.log('❤️ 좋아요 수:', likesCount, likesError ? '❌ 에러: ' + likesError.message : '✅')
+
+      const newStats = {
+        uploads: uploadsCount || 0,
+        purchases: purchasesCount || 0,
+        likes: likesCount || 0
+      }
+      
+      console.log('📊 최종 통계:', newStats)
+      setStats(newStats)
+    } catch (error) {
+      console.error('❌ 통계 가져오기 치명적 에러:', error)
+    } finally {
+      setStatsLoading(false)
+    }
+  }
+  
+  // 수동 새로고침 함수
+  const handleRefreshStats = () => {
+    if (user) {
+      fetchStats(user.id)
+    }
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -242,33 +306,58 @@ export default function Profile() {
           </button>
 
           <button
-            disabled
-            className="flex flex-col items-center gap-2 py-5 bg-gray-100 rounded-2xl shadow-lg opacity-50 cursor-not-allowed"
+            onClick={() => window.location.href = '/my-purchases'}
+            className="flex flex-col items-center gap-2 py-5 bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-1"
           >
-            <div className="w-14 h-14 bg-gradient-to-br from-gray-300 to-gray-400 rounded-2xl flex items-center justify-center text-white">
-              <CreditCard size={26} />
+            <div className="w-14 h-14 bg-gradient-to-br from-purple-400 to-purple-500 rounded-2xl flex items-center justify-center text-white shadow-lg">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
             </div>
-            <span className="text-sm font-bold text-gray-500">준비중</span>
+            <span className="text-xs font-bold text-gray-700">구매사진</span>
           </button>
         </div>
 
-        {/* 통계 정보 */}
+        {/* 통계 정보 - 실제 데이터 반영 */}
         <div className="mt-6 bg-white rounded-3xl shadow-xl p-6">
-          <h2 className="text-lg font-bold text-[#558B2F] mb-4 flex items-center gap-2">
-            <Sparkles size={20} />
-            내 활동
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-[#558B2F] flex items-center gap-2">
+              <Sparkles size={20} />
+              내 활동
+            </h2>
+            <button
+              onClick={handleRefreshStats}
+              disabled={statsLoading}
+              className="text-sm text-[#B3D966] hover:text-[#558B2F] font-semibold flex items-center gap-1 disabled:opacity-50"
+            >
+              {statsLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-[#B3D966] border-t-transparent rounded-full animate-spin"></div>
+                  <span>갱신중...</span>
+                </>
+              ) : (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                  </svg>
+                  <span>새로고침</span>
+                </>
+              )}
+            </button>
+          </div>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <p className="text-3xl font-bold text-[#B3D966]">0</p>
+              <p className="text-3xl font-bold text-[#B3D966]">{stats.uploads}</p>
               <p className="text-xs text-gray-600 mt-1">업로드</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-blue-500">0</p>
+              <p className="text-3xl font-bold text-blue-500">{stats.purchases}</p>
               <p className="text-xs text-gray-600 mt-1">구매</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-pink-500">0</p>
+              <p className="text-3xl font-bold text-pink-500">{stats.likes}</p>
               <p className="text-xs text-gray-600 mt-1">좋아요</p>
             </div>
           </div>
