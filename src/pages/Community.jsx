@@ -60,22 +60,33 @@ export default function Community() {
 
     // 정렬 방식 적용
     if (sortBy === 'popular') {
-      // 인기순: 좋아요 개수 우선, 같으면 댓글 개수, 그것도 같으면 최신순
-      query = query
-        .order('likes_count', { ascending: false })
-        .order('comments_count', { ascending: false })
-        .order('created_at', { ascending: false })
+      // 인기순: 좋아요 10점 + 댓글 5점, 같으면 최신순
+      query = query.order('likes_count', { ascending: false })
     } else {
       // 신규순: 등록 시점 기준 최신순
       query = query.order('created_at', { ascending: false })
     }
 
-    const { data: postsData, error: postsError } = await query
+    let { data: postsData, error: postsError } = await query
 
     if (postsError) {
       console.error('Error fetching posts:', postsError)
       setLoading(false)
       return
+    }
+
+    // 인기순일 경우 클라이언트에서 가중치 정렬
+    if (sortBy === 'popular' && postsData && postsData.length > 0) {
+      postsData = postsData.sort((a, b) => {
+        const scoreA = (a.likes_count || 0) * 10 + (a.comments_count || 0) * 5
+        const scoreB = (b.likes_count || 0) * 10 + (b.comments_count || 0) * 5
+        if (scoreB !== scoreA) {
+          return scoreB - scoreA // 점수 높은 순
+        }
+        // 점수가 같으면 최신순
+        return new Date(b.created_at) - new Date(a.created_at)
+      })
+      console.log('📊 커뮤니티 가중치 정렬 (좋아요 10점 + 댓글 5점)')
     }
 
     const postsWithProfiles = await Promise.all(

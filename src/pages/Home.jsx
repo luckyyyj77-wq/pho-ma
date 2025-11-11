@@ -206,11 +206,10 @@ export default function Home() {
 
     // 정렬 적용
     if (selectedCategory === 'popular') {
-      // 인기: 좋아요 개수 우선, 같으면 최신순
-      console.log('❤️ 인기순 정렬 적용')
-      query = query
-        .order('likes_count', { ascending: false, nullsLast: true })
-        .order('created_at', { ascending: false })
+      // 인기: 좋아요 10점 + 조회수 1점, 같으면 최신순
+      console.log('❤️ 인기순 정렬 적용 (좋아요 10점 + 조회수 1점)')
+      // Supabase는 계산식 정렬을 지원하지 않으므로 클라이언트에서 정렬
+      query = query.order('likes_count', { ascending: false, nullsLast: true })
     } else {
       // 신규 또는 기본: 등록 시점 기준 최신순
       console.log('🆕 신규순 정렬 적용')
@@ -227,13 +226,32 @@ export default function Home() {
       console.log(`✅ 불러온 사진 개수: ${data?.length || 0}`, data?.slice(0, 3).map(p => ({
         title: p.title,
         likes: p.likes_count,
+        views: p.views_count,
         created: p.created_at
       })))
 
+      // 인기순일 경우 클라이언트에서 가중치 정렬
+      let sortedData = data || []
+      if (selectedCategory === 'popular' && sortedData.length > 0) {
+        sortedData = sortedData.sort((a, b) => {
+          const scoreA = (a.likes_count || 0) * 10 + (a.views_count || 0)
+          const scoreB = (b.likes_count || 0) * 10 + (b.views_count || 0)
+          if (scoreB !== scoreA) {
+            return scoreB - scoreA // 점수 높은 순
+          }
+          // 점수가 같으면 최신순
+          return new Date(b.created_at) - new Date(a.created_at)
+        })
+        console.log('📊 가중치 정렬 완료:', sortedData.slice(0, 3).map(p => ({
+          title: p.title,
+          score: (p.likes_count || 0) * 10 + (p.views_count || 0)
+        })))
+      }
+
       if (isInitial) {
-        setPhotos(data || [])
+        setPhotos(sortedData)
       } else {
-        setPhotos(prev => [...prev, ...(data || [])])
+        setPhotos(prev => [...prev, ...sortedData])
       }
       
       // 더 이상 데이터가 없으면
