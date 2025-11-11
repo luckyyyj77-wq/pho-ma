@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { ArrowLeft, Heart, Gavel, Zap, TrendingUp, User as UserIcon, Clock } from 'lucide-react'
 import Timer from '../components/Timer'
+import { useLikes } from '../hooks/useLikes'
 
 export default function Detail() {
   const { id } = useParams()
@@ -16,6 +17,9 @@ export default function Detail() {
   const [bids, setBids] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [buyingNow, setBuyingNow] = useState(false)
+
+  // 좋아요 기능
+  const { isLiked, likesCount, loading: likeLoading, toggleLike } = useLikes(id, user?.id)
 
   useEffect(() => {
     checkUser()
@@ -211,6 +215,17 @@ export default function Detail() {
     }
   }
 
+  // 좋아요 클릭 핸들러
+  const handleLikeClick = async () => {
+    const result = await toggleLike()
+
+    if (result.success && result.reward?.given) {
+      alert(result.reward.message)
+    } else if (!result.success && result.message) {
+      alert(result.message)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#F1F8E9] via-white to-[#E8F5E9] flex items-center justify-center">
@@ -241,7 +256,7 @@ export default function Detail() {
   const isExpired = photo.status === 'sold' || photo.status === 'expired'
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F1F8E9] via-white to-[#E8F5E9] pb-20">
+    <div className="min-h-screen bg-gradient-to-br from-[#F1F8E9] via-white to-[#E8F5E9] pb-32">
       {/* 헤더 */}
       <div className="sticky top-0 z-10 bg-gradient-to-r from-[#B3D966] to-[#9DC183] shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -273,7 +288,31 @@ export default function Detail() {
                 <span className="text-6xl">📸</span>
               </div>
             )}
-            
+
+            {/* 좋아요 버튼 */}
+            <button
+              onClick={handleLikeClick}
+              disabled={likeLoading}
+              className={`absolute top-4 left-4 p-3 rounded-full shadow-xl transition-all ${
+                isLiked
+                  ? 'bg-red-500 hover:bg-red-600'
+                  : 'bg-white/90 hover:bg-white'
+              }`}
+            >
+              <Heart
+                size={24}
+                className={isLiked ? 'text-white fill-white' : 'text-[#B3D966]'}
+              />
+            </button>
+
+            {/* 좋아요 개수 표시 */}
+            {likesCount > 0 && (
+              <div className="absolute top-20 left-4 px-3 py-2 bg-black/70 rounded-full flex items-center gap-2">
+                <Heart size={16} className="text-red-500 fill-red-500" />
+                <span className="text-white text-sm font-bold">{likesCount}</span>
+              </div>
+            )}
+
             {/* 상태 배지 */}
             {photo.status === 'sold' && (
               <div className="absolute top-4 right-4 px-4 py-2 bg-red-600 text-white font-bold rounded-full">
@@ -324,39 +363,47 @@ export default function Detail() {
               </div>
             </div>
 
-            {/* 입찰 UI */}
+            {/* 입찰 UI - 모바일 최적화 */}
             {!isExpired && user && (
               <div className="space-y-3">
-                <div className="flex gap-2">
+                {/* 입찰 금액 입력 */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-gray-700">입찰 금액</label>
                   <input
                     type="number"
                     value={bidAmount}
                     onChange={(e) => setBidAmount(e.target.value)}
-                    placeholder="입찰 금액"
-                    className="flex-1 px-4 py-3 border-2 border-[#B3D966] rounded-xl focus:outline-none focus:border-[#558B2F] text-lg font-semibold"
+                    placeholder="입찰 금액 입력"
+                    className="w-full px-4 py-4 border-2 border-[#B3D966] rounded-xl focus:outline-none focus:border-[#558B2F] text-xl font-bold text-center"
                     disabled={submitting || buyingNow}
                   />
-                  <button
-                    onClick={handleBid}
-                    disabled={submitting || buyingNow}
-                    className="px-6 py-3 bg-gradient-to-r from-[#B3D966] to-[#9DC183] text-white rounded-xl font-bold hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"
-                  >
-                    <Gavel size={20} />
-                    {submitting ? '입찰 중...' : '입찰'}
-                  </button>
+                  <p className="text-xs text-gray-500 text-center">
+                    최소 {(photo.current_price + 100).toLocaleString()}P 이상 입력
+                  </p>
                 </div>
 
+                {/* 입찰 버튼 */}
+                <button
+                  onClick={handleBid}
+                  disabled={submitting || buyingNow}
+                  className="w-full px-6 py-4 bg-gradient-to-r from-[#B3D966] to-[#9DC183] text-white rounded-xl font-bold text-lg hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <Gavel size={24} />
+                  {submitting ? '입찰 중...' : '입찰하기'}
+                </button>
+
+                {/* 즉시 구매 버튼 */}
                 <button
                   onClick={handleBuyNow}
                   disabled={submitting || buyingNow}
-                  className="w-full px-6 py-4 bg-gradient-to-r from-[#FF6F00] to-[#FF8F00] text-white rounded-xl font-bold hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full px-6 py-4 bg-gradient-to-r from-[#FF6F00] to-[#FF8F00] text-white rounded-xl font-bold text-lg hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg"
                 >
-                  <Zap size={20} />
-                  {buyingNow ? '구매 중...' : `즉시 구매 (${photo.buy_now_price.toLocaleString()}P)`}
+                  <Zap size={24} />
+                  {buyingNow ? '구매 중...' : `즉시 구매 ${photo.buy_now_price.toLocaleString()}P`}
                 </button>
 
-                <p className="text-xs text-gray-500 text-center">
-                  * 최소 입찰 단위: 100P
+                <p className="text-xs text-gray-400 text-center">
+                  💡 입찰 단위: 100P
                 </p>
               </div>
             )}

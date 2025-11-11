@@ -3,6 +3,85 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { Search, Plus, Heart, TrendingUp, Sparkles, Menu, X, Home as HomeIcon, Upload as UploadIcon, User, CreditCard, MessageSquare, LogOut, Loader } from 'lucide-react'
 import Timer from '../components/Timer'
+import { useLikes } from '../hooks/useLikes'
+
+// 사진 카드 컴포넌트 (좋아요 기능 포함)
+function PhotoCard({ photo, user }) {
+  const { isLiked, likesCount, loading: likeLoading, toggleLike } = useLikes(photo.id, user?.id)
+
+  const handleLikeClick = async (e) => {
+    e.stopPropagation() // 카드 클릭 이벤트 방지
+    const result = await toggleLike()
+
+    if (result.success && result.reward?.given) {
+      alert(result.reward.message)
+    } else if (!result.success && result.message) {
+      alert(result.message)
+    }
+  }
+
+  return (
+    <div
+      onClick={() => window.location.href = `/photo/${photo.id}`}
+      className="group cursor-pointer"
+    >
+      <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-1">
+        {/* 이미지 */}
+        {photo.preview_url ? (
+          <img
+            src={photo.preview_url}
+            alt={photo.title}
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-[#C8E6C9] to-[#A5D6A7] flex items-center justify-center">
+            <Sparkles size={48} className="text-white/50" />
+          </div>
+        )}
+
+        {/* 그라데이션 오버레이 */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+
+        {/* 좋아요 버튼 - 항상 표시 */}
+        <button
+          onClick={handleLikeClick}
+          disabled={likeLoading}
+          className={`absolute top-3 right-3 p-2 rounded-full shadow-lg transition-all ${
+            isLiked
+              ? 'bg-red-500 hover:bg-red-600'
+              : 'bg-white/90 hover:bg-white'
+          }`}
+        >
+          <Heart
+            size={18}
+            className={isLiked ? 'text-white fill-white' : 'text-[#B3D966]'}
+          />
+        </button>
+
+        {/* 좋아요 개수 표시 */}
+        {likesCount > 0 && (
+          <div className="absolute top-3 left-3 px-2 py-1 bg-black/60 rounded-full flex items-center gap-1">
+            <Heart size={14} className="text-red-500 fill-red-500" />
+            <span className="text-white text-xs font-semibold">{likesCount}</span>
+          </div>
+        )}
+
+        {/* 정보 */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform translate-y-full group-hover:translate-y-0 transition-transform">
+          <h3 className="font-bold text-lg mb-1 line-clamp-1">{photo.title}</h3>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-white/90">{photo.price?.toLocaleString()}P</p>
+            <TrendingUp size={16} className="text-[#B3D966]" />
+          </div>
+          {/* 타이머 추가 */}
+          <div className="bg-black/30 rounded-lg px-2 py-1">
+            <Timer endTime={photo.end_time} compact={true} />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function Home() {
   const [photos, setPhotos] = useState([])
@@ -15,6 +94,11 @@ export default function Home() {
   const [page, setPage] = useState(0)
   const [categories, setCategories] = useState([])  // 동적 카테고리
   const [selectedCategory, setSelectedCategory] = useState('all')  // 선택된 카테고리
+  const [showAvailableOnly, setShowAvailableOnly] = useState(() => {
+    // localStorage에서 초기값 불러오기
+    const saved = localStorage.getItem('showAvailableOnly')
+    return saved === 'true'
+  })
   const observerTarget = useRef(null)
 
   const ITEMS_PER_PAGE = 20
@@ -24,14 +108,19 @@ export default function Home() {
     fetchCategories()  // 카테고리 불러오기
   }, [])
 
-  // 카테고리 변경 시 사진 다시 불러오기
+  // 카테고리 또는 토글 변경 시 사진 다시 불러오기
   useEffect(() => {
     // 카테고리가 아직 로드되지 않은 상태에서 특정 카테고리 조회를 방지
     if (selectedCategory !== 'all' && categories.length === 0) {
       return;
     }
     fetchPhotos(true)
-  }, [selectedCategory, categories])
+  }, [selectedCategory, categories, showAvailableOnly])
+
+  // 토글 변경 시 localStorage에 저장
+  useEffect(() => {
+    localStorage.setItem('showAvailableOnly', showAvailableOnly.toString())
+  }, [showAvailableOnly])
 
   // 무한 스크롤 감지
   useEffect(() => {
@@ -78,6 +167,7 @@ export default function Home() {
     if (isInitial) {
       setLoading(true)
       setPage(0)
+      setHasMore(true)
     } else {
       setLoadingMore(true)
     }
@@ -85,14 +175,14 @@ export default function Home() {
     const from = isInitial ? 0 : (page + 1) * ITEMS_PER_PAGE
     const to = from + ITEMS_PER_PAGE - 1
 
+    console.log('📊 정렬 기준:', selectedCategory)
+
     let query = supabase
       .from('photos')
       .select('*, end_time')
-      .order('created_at', { ascending: false })
-      .range(from, to)
 
-    // 카테고리 필터 적용
-    if (selectedCategory && selectedCategory !== 'all') {
+    // 카테고리 필터 적용 (popular, new는 정렬 방식이므로 제외)
+    if (selectedCategory && selectedCategory !== 'all' && selectedCategory !== 'popular' && selectedCategory !== 'new') {
       // category_id로 필터 (UUID)
       const categoryData = categories.find(c => c.slug === selectedCategory)
       if (categoryData) {
@@ -100,11 +190,47 @@ export default function Home() {
       }
     }
 
+    // 상태 필터링 로직
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+    if (showAvailableOnly) {
+      // 구매가능 토글 ON: active, pending만 표시
+      console.log('🛒 구매가능한 사진만 표시')
+      query = query.in('status', ['active', 'pending'])
+    } else {
+      // 구매가능 토글 OFF: 판매 완료 24시간 이내 사진도 표시
+      console.log('📅 판매 완료 24시간 이내 사진 포함')
+      // 1. active/pending 또는
+      // 2. sold/expired이지만 updated_at이 24시간 이내
+      query = query.or(`status.in.(active,pending),and(status.in.(sold,expired),updated_at.gte.${twentyFourHoursAgo})`)
+    }
+
+    // 정렬 적용
+    if (selectedCategory === 'popular') {
+      // 인기: 좋아요 개수 우선, 같으면 최신순
+      console.log('❤️ 인기순 정렬 적용')
+      query = query
+        .order('likes_count', { ascending: false, nullsLast: true })
+        .order('created_at', { ascending: false })
+    } else {
+      // 신규 또는 기본: 등록 시점 기준 최신순
+      console.log('🆕 신규순 정렬 적용')
+      query = query.order('created_at', { ascending: false })
+    }
+
+    query = query.range(from, to)
+
     const { data, error } = await query
 
     if (error) {
-      console.error('Error fetching photos:', error)
+      console.error('❌ Error fetching photos:', error)
     } else {
+      console.log(`✅ 불러온 사진 개수: ${data?.length || 0}`, data?.slice(0, 3).map(p => ({
+        title: p.title,
+        likes: p.likes_count,
+        created: p.created_at
+      })))
+
       if (isInitial) {
         setPhotos(data || [])
       } else {
@@ -187,22 +313,46 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 카테고리 태그 */}
-      <div className="max-w-7xl mx-auto px-4 py-4 overflow-x-auto">
-        <div className="flex gap-2 pb-2">
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              onClick={() => setSelectedCategory(category.slug)}
-              className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap shadow-md transition-all ${
-                selectedCategory === category.slug
-                  ? 'bg-[#B3D966] text-white'
-                  : 'bg-white text-gray-700 hover:bg-[#B3D966] hover:text-white'
-              }`}
-            >
-              {category.icon} {category.name}
-            </button>
-          ))}
+      {/* 구매가능 토글 & 카테고리 태그 */}
+      <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="flex items-center gap-3 mb-3">
+          {/* 구매가능 토글 스위치 */}
+          <button
+            onClick={() => setShowAvailableOnly(!showAvailableOnly)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-sm shadow-md transition-all ${
+              showAvailableOnly
+                ? 'bg-[#B3D966] text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <div className={`w-10 h-5 rounded-full transition-all relative ${
+              showAvailableOnly ? 'bg-white/30' : 'bg-gray-300'
+            }`}>
+              <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform ${
+                showAvailableOnly ? 'translate-x-5 bg-white' : 'translate-x-0 bg-white'
+              }`}></div>
+            </div>
+            <span>구매가능</span>
+          </button>
+        </div>
+
+        {/* 카테고리 태그 */}
+        <div className="overflow-x-auto">
+          <div className="flex gap-2 pb-2">
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                onClick={() => setSelectedCategory(category.slug)}
+                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap shadow-md transition-all ${
+                  selectedCategory === category.slug
+                    ? 'bg-[#B3D966] text-white'
+                    : 'bg-white text-gray-700 hover:bg-[#B3D966] hover:text-white'
+                }`}
+              >
+                {category.icon} {category.name}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -232,47 +382,7 @@ export default function Home() {
             {/* 2열 그리드 */}
             <div className="grid grid-cols-2 gap-4">
               {filteredPhotos.map((photo) => (
-                <div
-                  key={photo.id}
-                  onClick={() => window.location.href = `/photo/${photo.id}`}
-                  className="group cursor-pointer"
-                >
-                  <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-1">
-                    {/* 이미지 */}
-                    {photo.preview_url ? (
-                      <img
-                        src={photo.preview_url}
-                        alt={photo.title}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-[#C8E6C9] to-[#A5D6A7] flex items-center justify-center">
-                        <Sparkles size={48} className="text-white/50" />
-                      </div>
-                    )}
-
-                    {/* 그라데이션 오버레이 */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-
-                    {/* 좋아요 버튼 */}
-                    <button className="absolute top-3 right-3 p-2 bg-white/90 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white">
-                      <Heart size={18} className="text-[#B3D966]" />
-                    </button>
-
-                    {/* 정보 */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform translate-y-full group-hover:translate-y-0 transition-transform">
-                      <h3 className="font-bold text-lg mb-1 line-clamp-1">{photo.title}</h3>
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-white/90">{photo.price?.toLocaleString()}P</p>
-                        <TrendingUp size={16} className="text-[#B3D966]" />
-                      </div>
-                      {/* 타이머 추가 */}
-  <div className="bg-black/30 rounded-lg px-2 py-1">
-    <Timer endTime={photo.end_time} compact={true} />
-  </div>
-                    </div>
-                  </div>
-                </div>
+                <PhotoCard key={photo.id} photo={photo} user={user} />
               ))}
             </div>
 

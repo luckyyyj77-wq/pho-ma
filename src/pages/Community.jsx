@@ -23,6 +23,7 @@ export default function Community() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
   const [showWriteModal, setShowWriteModal] = useState(false)
+  const [sortBy, setSortBy] = useState('new') // 'new' | 'popular'
   
   // 글쓰기 폼 상태
   const [title, setTitle] = useState('')
@@ -40,6 +41,11 @@ export default function Community() {
     fetchPosts()
   }, [])
 
+  // 정렬 방식 변경 시 게시글 다시 불러오기
+  useEffect(() => {
+    fetchPosts()
+  }, [sortBy])
+
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
@@ -47,11 +53,24 @@ export default function Community() {
 
   const fetchPosts = async () => {
     setLoading(true)
-    
-    const { data: postsData, error: postsError } = await supabase
+
+    let query = supabase
       .from('community_posts')
       .select('*')
-      .order('created_at', { ascending: false })
+
+    // 정렬 방식 적용
+    if (sortBy === 'popular') {
+      // 인기순: 좋아요 개수 우선, 같으면 댓글 개수, 그것도 같으면 최신순
+      query = query
+        .order('likes_count', { ascending: false })
+        .order('comments_count', { ascending: false })
+        .order('created_at', { ascending: false })
+    } else {
+      // 신규순: 등록 시점 기준 최신순
+      query = query.order('created_at', { ascending: false })
+    }
+
+    const { data: postsData, error: postsError } = await query
 
     if (postsError) {
       console.error('Error fetching posts:', postsError)
@@ -296,6 +315,32 @@ export default function Community() {
               <PenSquare size={24} className="text-white" />
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* 정렬 탭 */}
+      <div className="max-w-7xl mx-auto px-4 pt-4">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setSortBy('new')}
+            className={`px-4 py-2 rounded-full text-sm font-semibold shadow-md transition-all ${
+              sortBy === 'new'
+                ? 'bg-[#B3D966] text-white'
+                : 'bg-white text-gray-700 hover:bg-[#B3D966] hover:text-white'
+            }`}
+          >
+            🆕 신규
+          </button>
+          <button
+            onClick={() => setSortBy('popular')}
+            className={`px-4 py-2 rounded-full text-sm font-semibold shadow-md transition-all ${
+              sortBy === 'popular'
+                ? 'bg-[#B3D966] text-white'
+                : 'bg-white text-gray-700 hover:bg-[#B3D966] hover:text-white'
+            }`}
+          >
+            🔥 인기
+          </button>
         </div>
       </div>
 
