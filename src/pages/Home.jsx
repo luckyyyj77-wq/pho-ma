@@ -42,36 +42,43 @@ function PhotoCard({ photo, user }) {
         {/* 그라데이션 오버레이 */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
-        {/* 좌측: 좋아요 버튼 (클릭 가능) */}
-        <button
-          onClick={handleLikeClick}
-          disabled={likeLoading}
-          className={`absolute top-3 left-3 px-2 py-1 rounded-full shadow-lg transition-all flex items-center gap-1 ${
-            isLiked
-              ? 'bg-red-500 hover:bg-red-600'
-              : 'bg-black/60 hover:bg-black/80'
-          }`}
-        >
-          <Heart
-            size={14}
-            className={isLiked ? 'text-white fill-white' : 'text-red-500 fill-red-500'}
-          />
-          <span className="text-white text-xs font-semibold">{likesCount || 0}</span>
-        </button>
+        {/* 우측: 좋아요, 조회수 가로 정렬 */}
+        <div className="absolute top-3 right-3 flex items-center gap-2">
+          {/* 좋아요 버튼 (클릭 가능) */}
+          <button
+            onClick={handleLikeClick}
+            disabled={likeLoading}
+            className={`px-2 py-1 rounded-full shadow-lg transition-all flex items-center gap-1 ${
+              isLiked
+                ? 'bg-red-500 hover:bg-red-600'
+                : 'bg-black/60 hover:bg-black/80'
+            }`}
+          >
+            <Heart
+              size={14}
+              className={isLiked ? 'text-white fill-white' : 'text-red-500 fill-red-500'}
+            />
+            <span className="text-white text-xs font-semibold">{likesCount || 0}</span>
+          </button>
 
-        {/* 우측: 조회수 표시 */}
-        <div className="absolute top-3 right-3 px-2 py-1 bg-black/60 rounded-full flex items-center gap-1 shadow-lg">
-          <Eye size={14} className="text-blue-400" />
-          <span className="text-white text-xs font-semibold">{photo.views_count || 0}</span>
+          {/* 조회수 */}
+          <div className="px-2 py-1 bg-black/60 rounded-full flex items-center gap-1 shadow-lg">
+            <Eye size={14} className="text-blue-400" />
+            <span className="text-white text-xs font-semibold">{photo.views_count || 0}</span>
+          </div>
         </div>
 
         {/* 정보 */}
         <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform translate-y-full group-hover:translate-y-0 transition-transform">
           <h3 className="font-bold text-lg mb-1 line-clamp-1">{photo.title}</h3>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-1">
             <p className="text-sm text-white/90">{photo.price?.toLocaleString()}P</p>
             <TrendingUp size={16} className="text-[#B3D966]" />
           </div>
+          {/* 작성자 정보 */}
+          <p className="text-xs text-white/70 mb-1">
+            작성자: {photo.profiles?.username || '익명'}
+          </p>
           {/* 타이머 추가 */}
           <div className="bg-black/30 rounded-lg px-2 py-1">
             <Timer endTime={photo.end_time} compact={true} />
@@ -248,10 +255,26 @@ export default function Home() {
         })))
       }
 
+      // 프로필 정보 추가
+      const photosWithProfiles = await Promise.all(
+        sortedData.map(async (photo) => {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', photo.user_id)
+            .single()
+
+          return {
+            ...photo,
+            profiles: profile || { username: '익명' }
+          }
+        })
+      )
+
       if (isInitial) {
-        setPhotos(sortedData)
+        setPhotos(photosWithProfiles)
       } else {
-        setPhotos(prev => [...prev, ...sortedData])
+        setPhotos(prev => [...prev, ...photosWithProfiles])
       }
       
       // 더 이상 데이터가 없으면

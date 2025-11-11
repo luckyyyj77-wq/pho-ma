@@ -2,18 +2,19 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-import { 
-  MessageSquare, 
-  ArrowLeft, 
-  PenSquare, 
-  X, 
-  Image as ImageIcon, 
+import {
+  MessageSquare,
+  ArrowLeft,
+  PenSquare,
+  X,
+  Image as ImageIcon,
   Send,
   Heart,
   MessageCircle,
   Clock,
   Loader,
-  AlertCircle
+  AlertCircle,
+  Eye
 } from 'lucide-react'
 import { validateContent, validatePhotoTitle } from '../utils/profanityFilter'
 
@@ -412,8 +413,12 @@ export default function Community() {
                       {post.content}
                     </p>
 
-                    {/* 좋아요, 댓글 */}
+                    {/* 조회수, 좋아요, 댓글 */}
                     <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1 text-gray-500">
+                        <Eye size={14} />
+                        <span className="text-xs font-medium">{post.views_count || 0}</span>
+                      </div>
                       <div className="flex items-center gap-1 text-gray-500">
                         <Heart size={14} />
                         <span className="text-xs font-medium">{post.likes_count || 0}</span>

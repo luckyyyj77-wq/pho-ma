@@ -2,17 +2,18 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-import { 
-  ArrowLeft, 
-  Heart, 
-  MessageCircle, 
+import {
+  ArrowLeft,
+  Heart,
+  MessageCircle,
   Clock,
   MoreVertical,
   Trash2,
   Edit,
   Send,
   X,
-  AlertCircle
+  AlertCircle,
+  Eye
 } from 'lucide-react'
 import { validateContent, validatePhotoTitle } from '../utils/profanityFilter'
 
@@ -46,6 +47,7 @@ export default function CommunityDetail() {
     checkUser()
     fetchPost()
     fetchComments()
+    incrementViewCount() // 조회수 증가
   }, [id])
 
   useEffect(() => {
@@ -57,6 +59,37 @@ export default function CommunityDetail() {
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
+  }
+
+  // 조회수 증가 함수 (중복 방지)
+  const incrementViewCount = async () => {
+    try {
+      // 세션 ID 가져오기 (없으면 생성)
+      let sessionId = localStorage.getItem('view_session_id')
+      if (!sessionId) {
+        sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        localStorage.setItem('view_session_id', sessionId)
+      }
+
+      // Supabase RPC로 중복 방지 조회수 증가 함수 호출
+      const { data, error } = await supabase.rpc('increment_community_views_once_per_day', {
+        p_post_id: id,
+        p_user_id: user?.id || null,
+        p_session_id: sessionId
+      })
+
+      if (error) {
+        console.error('조회수 증가 실패:', error)
+      } else {
+        if (data) {
+          console.log('👁️ 조회수 증가 (+1)')
+        } else {
+          console.log('👁️ 오늘 이미 조회한 게시글입니다')
+        }
+      }
+    } catch (error) {
+      console.error('조회수 증가 오류:', error)
+    }
   }
 
   // 수정 제목 입력 핸들러
@@ -506,9 +539,13 @@ if (!validation.isValid) {
             </p>
           </div>
 
-          {/* 좋아요, 댓글 수 */}
+          {/* 조회수, 좋아요, 댓글 수 */}
           <div className="px-4 py-3 border-t border-gray-100">
             <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-gray-600">
+                <Eye size={18} />
+                <span className="font-semibold">{post.views_count || 0}</span>
+              </div>
               <button
                 onClick={toggleLike}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${

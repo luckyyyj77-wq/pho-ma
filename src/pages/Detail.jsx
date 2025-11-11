@@ -89,8 +89,21 @@ export default function Detail() {
         .single()
 
       if (error) throw error
-      setPhoto(data)
-      
+
+      // 프로필 정보 가져오기
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', data.user_id)
+        .single()
+
+      const photoWithProfile = {
+        ...data,
+        profiles: profile || { username: '익명' }
+      }
+
+      setPhoto(photoWithProfile)
+
       // 최소 입찰가 설정 (현재가 + 100원)
       setBidAmount((data.current_price + 100).toString())
     } catch (error) {
@@ -321,29 +334,6 @@ export default function Detail() {
               </div>
             )}
 
-            {/* 좌측: 좋아요 버튼 (클릭 가능) */}
-            <button
-              onClick={handleLikeClick}
-              disabled={likeLoading}
-              className={`absolute top-4 left-4 px-3 py-2 rounded-full shadow-xl transition-all flex items-center gap-2 ${
-                isLiked
-                  ? 'bg-red-500 hover:bg-red-600'
-                  : 'bg-black/70 hover:bg-black/90'
-              }`}
-            >
-              <Heart
-                size={20}
-                className={isLiked ? 'text-white fill-white' : 'text-red-500 fill-red-500'}
-              />
-              <span className="text-white text-sm font-bold">{likesCount || 0}</span>
-            </button>
-
-            {/* 우측: 조회수 표시 */}
-            <div className="absolute top-4 right-4 px-3 py-2 bg-black/70 rounded-full flex items-center gap-2 shadow-xl">
-              <Eye size={20} className="text-blue-400" />
-              <span className="text-white text-sm font-bold">{photo.views_count || 0}</span>
-            </div>
-
             {/* 상태 배지 - 우측 하단으로 이동 */}
             {photo.status === 'sold' && (
               <div className="absolute bottom-4 right-4 px-4 py-2 bg-red-600 text-white font-bold rounded-full shadow-xl">
@@ -362,11 +352,43 @@ export default function Detail() {
             {/* 제목 & 카테고리 */}
             <div className="mb-4">
               <h2 className="text-2xl font-black text-gray-900 mb-2">{photo.title}</h2>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mb-3">
                 <span className="px-3 py-1 bg-[#E8F5E9] text-[#558B2F] text-sm font-semibold rounded-full">
                   {photo.category}
                 </span>
                 <span className="text-sm text-gray-500">{photo.resolution}</span>
+              </div>
+
+              {/* 작성자, 좋아요, 조회수 가로 정렬 */}
+              <div className="flex items-center gap-2">
+                {/* 작성자 아이디 */}
+                <div className="px-3 py-2 bg-gray-100 rounded-full flex items-center gap-2">
+                  <UserIcon size={16} className="text-green-500" />
+                  <span className="text-gray-800 text-sm font-semibold">{photo.profiles?.username || '익명'}</span>
+                </div>
+
+                {/* 좋아요 버튼 (클릭 가능) */}
+                <button
+                  onClick={handleLikeClick}
+                  disabled={likeLoading}
+                  className={`px-3 py-2 rounded-full transition-all flex items-center gap-2 ${
+                    isLiked
+                      ? 'bg-red-500 hover:bg-red-600 text-white'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                  }`}
+                >
+                  <Heart
+                    size={16}
+                    className={isLiked ? 'text-white fill-white' : 'text-red-500 fill-red-500'}
+                  />
+                  <span className="text-sm font-semibold">{likesCount || 0}</span>
+                </button>
+
+                {/* 조회수 */}
+                <div className="px-3 py-2 bg-gray-100 rounded-full flex items-center gap-2">
+                  <Eye size={16} className="text-blue-500" />
+                  <span className="text-gray-800 text-sm font-semibold">{photo.views_count || 0}</span>
+                </div>
               </div>
             </div>
 
