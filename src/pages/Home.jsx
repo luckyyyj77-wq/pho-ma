@@ -1,7 +1,7 @@
 // src/pages/Home.jsx - 샤인머스켓 테마 + 햄버거 메뉴 + 2열 + 무한 스크롤
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { Search, Plus, Heart, TrendingUp, Sparkles, Menu, X, Home as HomeIcon, Upload as UploadIcon, User, CreditCard, MessageSquare, LogOut, Loader } from 'lucide-react'
+import { Search, Plus, Heart, TrendingUp, Sparkles, Menu, X, Home as HomeIcon, Upload as UploadIcon, User, CreditCard, MessageSquare, LogOut, Loader, Eye } from 'lucide-react'
 import Timer from '../components/Timer'
 import { useLikes } from '../hooks/useLikes'
 
@@ -42,29 +42,28 @@ function PhotoCard({ photo, user }) {
         {/* 그라데이션 오버레이 */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
-        {/* 좋아요 버튼 - 항상 표시 */}
+        {/* 좌측: 좋아요 버튼 (클릭 가능) */}
         <button
           onClick={handleLikeClick}
           disabled={likeLoading}
-          className={`absolute top-3 right-3 p-2 rounded-full shadow-lg transition-all ${
+          className={`absolute top-3 left-3 px-2 py-1 rounded-full shadow-lg transition-all flex items-center gap-1 ${
             isLiked
               ? 'bg-red-500 hover:bg-red-600'
-              : 'bg-white/90 hover:bg-white'
+              : 'bg-black/60 hover:bg-black/80'
           }`}
         >
           <Heart
-            size={18}
-            className={isLiked ? 'text-white fill-white' : 'text-[#B3D966]'}
+            size={14}
+            className={isLiked ? 'text-white fill-white' : 'text-red-500 fill-red-500'}
           />
+          <span className="text-white text-xs font-semibold">{likesCount || 0}</span>
         </button>
 
-        {/* 좋아요 개수 표시 */}
-        {likesCount > 0 && (
-          <div className="absolute top-3 left-3 px-2 py-1 bg-black/60 rounded-full flex items-center gap-1">
-            <Heart size={14} className="text-red-500 fill-red-500" />
-            <span className="text-white text-xs font-semibold">{likesCount}</span>
-          </div>
-        )}
+        {/* 우측: 조회수 표시 */}
+        <div className="absolute top-3 right-3 px-2 py-1 bg-black/60 rounded-full flex items-center gap-1 shadow-lg">
+          <Eye size={14} className="text-blue-400" />
+          <span className="text-white text-xs font-semibold">{photo.views_count || 0}</span>
+        </div>
 
         {/* 정보 */}
         <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform translate-y-full group-hover:translate-y-0 transition-transform">
@@ -190,7 +189,7 @@ export default function Home() {
       }
     }
 
-    // 상태 필터링 로직
+    // 상태 필터링 로직 및 24시간 자동 삭제
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
     if (showAvailableOnly) {

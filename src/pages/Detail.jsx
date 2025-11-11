@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-import { ArrowLeft, Heart, Gavel, Zap, TrendingUp, User as UserIcon, Clock } from 'lucide-react'
+import { ArrowLeft, Heart, Gavel, Zap, TrendingUp, User as UserIcon, Clock, Eye } from 'lucide-react'
 import Timer from '../components/Timer'
 import { useLikes } from '../hooks/useLikes'
 
@@ -25,11 +25,12 @@ export default function Detail() {
     checkUser()
     fetchPhoto()
     fetchBids()
-    
+    incrementViewCount() // 조회수 증가
+
     // 실시간 입찰 구독
     const subscription = supabase
       .channel(`bids:${id}`)
-      .on('postgres_changes', 
+      .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'bids', filter: `photo_id=eq.${id}` },
         () => {
           fetchPhoto()
@@ -46,6 +47,37 @@ export default function Detail() {
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
+  }
+
+  // 조회수 증가 함수 (중복 방지)
+  const incrementViewCount = async () => {
+    try {
+      // 세션 ID 가져오기 (없으면 생성)
+      let sessionId = localStorage.getItem('view_session_id')
+      if (!sessionId) {
+        sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        localStorage.setItem('view_session_id', sessionId)
+      }
+
+      // Supabase RPC로 중복 방지 조회수 증가 함수 호출
+      const { data, error } = await supabase.rpc('increment_views_once_per_day', {
+        p_photo_id: id,
+        p_user_id: user?.id || null,
+        p_session_id: sessionId
+      })
+
+      if (error) {
+        console.error('조회수 증가 실패:', error)
+      } else {
+        if (data) {
+          console.log('👁️ 조회수 증가 (+1)')
+        } else {
+          console.log('👁️ 오늘 이미 조회한 사진입니다')
+        }
+      }
+    } catch (error) {
+      console.error('조회수 증가 오류:', error)
+    }
   }
 
   const fetchPhoto = async () => {
@@ -289,38 +321,37 @@ export default function Detail() {
               </div>
             )}
 
-            {/* 좋아요 버튼 */}
+            {/* 좌측: 좋아요 버튼 (클릭 가능) */}
             <button
               onClick={handleLikeClick}
               disabled={likeLoading}
-              className={`absolute top-4 left-4 p-3 rounded-full shadow-xl transition-all ${
+              className={`absolute top-4 left-4 px-3 py-2 rounded-full shadow-xl transition-all flex items-center gap-2 ${
                 isLiked
                   ? 'bg-red-500 hover:bg-red-600'
-                  : 'bg-white/90 hover:bg-white'
+                  : 'bg-black/70 hover:bg-black/90'
               }`}
             >
               <Heart
-                size={24}
-                className={isLiked ? 'text-white fill-white' : 'text-[#B3D966]'}
+                size={20}
+                className={isLiked ? 'text-white fill-white' : 'text-red-500 fill-red-500'}
               />
+              <span className="text-white text-sm font-bold">{likesCount || 0}</span>
             </button>
 
-            {/* 좋아요 개수 표시 */}
-            {likesCount > 0 && (
-              <div className="absolute top-20 left-4 px-3 py-2 bg-black/70 rounded-full flex items-center gap-2">
-                <Heart size={16} className="text-red-500 fill-red-500" />
-                <span className="text-white text-sm font-bold">{likesCount}</span>
-              </div>
-            )}
+            {/* 우측: 조회수 표시 */}
+            <div className="absolute top-4 right-4 px-3 py-2 bg-black/70 rounded-full flex items-center gap-2 shadow-xl">
+              <Eye size={20} className="text-blue-400" />
+              <span className="text-white text-sm font-bold">{photo.views_count || 0}</span>
+            </div>
 
-            {/* 상태 배지 */}
+            {/* 상태 배지 - 우측 하단으로 이동 */}
             {photo.status === 'sold' && (
-              <div className="absolute top-4 right-4 px-4 py-2 bg-red-600 text-white font-bold rounded-full">
+              <div className="absolute bottom-4 right-4 px-4 py-2 bg-red-600 text-white font-bold rounded-full shadow-xl">
                 판매 완료
               </div>
             )}
             {photo.status === 'expired' && (
-              <div className="absolute top-4 right-4 px-4 py-2 bg-gray-600 text-white font-bold rounded-full">
+              <div className="absolute bottom-4 right-4 px-4 py-2 bg-gray-600 text-white font-bold rounded-full shadow-xl">
                 경매 종료
               </div>
             )}
