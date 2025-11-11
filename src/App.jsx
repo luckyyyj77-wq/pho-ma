@@ -12,7 +12,7 @@ import Auth from './components/Auth'
 import Admin from './pages/Admin'
 import PointCharge from './pages/PointCharge'
 import Community from './pages/Community'
-import CommunityDetail from './pages/CommunityDetail';
+import CommunityDetail from './pages/CommunityDetail'
 import MyPurchases from './pages/MyPurchases'
 
 initLanguage()
