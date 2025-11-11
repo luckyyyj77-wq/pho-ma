@@ -6,7 +6,8 @@ import TermsModal from './TermsModal'
 import PrivacyModal from './PrivacyModal'
 
 export default function Auth({ onSuccess, onBack }) {
-  const [step, setStep] = useState('select') // 'select', 'google', 'kakao', 'email', 'phone'
+  const [step, setStep] = useState('mode') // 'mode', 'select', 'google', 'kakao', 'email', 'phone'
+  const [authMode, setAuthMode] = useState('signin') // 'signin' or 'signup'
   const [emailMode, setEmailMode] = useState('signin') // 'signin' or 'signup'
   const [phoneStep, setPhoneStep] = useState('phone') // 'phone' or 'code'
   const [loading, setLoading] = useState(false)
@@ -214,7 +215,11 @@ export default function Auth({ onSuccess, onBack }) {
 
   // 뒤로가기
   const handleBack = () => {
-    setStep('select')
+    if (step === 'select') {
+      setStep('mode') // select에서 뒤로가면 mode로
+    } else {
+      setStep('select')
+    }
     setMessage({ type: '', text: '' })
     setFormData({ email: '', password: '', name: '', phone: '', code: '' })
     setPhoneStep('phone')
@@ -222,7 +227,8 @@ export default function Auth({ onSuccess, onBack }) {
 
   // 인증 버튼 클릭 핸들러
   const handleAuthButtonClick = (authHandler) => {
-    if (!termsAccepted || !privacyAccepted) {
+    // 회원가입 모드일 때만 약관 체크
+    if (authMode === 'signup' && (!termsAccepted || !privacyAccepted)) {
       setMessage({ type: 'error', text: '아래의 이용약관과 개인정보처리방침을 확인해주세요.' });
       return;
     }
@@ -232,7 +238,70 @@ export default function Auth({ onSuccess, onBack }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F1F8E9] via-white to-[#E8F5E9] flex items-center justify-center p-4 overflow-hidden">
       <div className="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl">
-        
+
+        {/* Step 0: 로그인/회원가입 선택 */}
+        {step === 'mode' && (
+          <div className="animate-fadeIn relative">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="absolute top-0 left-0 flex items-center gap-2 text-gray-600 hover:text-[#558B2F] transition-colors p-2 rounded-lg hover:bg-white/50"
+              >
+                <span className="text-2xl">↩</span>
+              </button>
+            )}
+
+            <div className="text-center mb-12">
+              <svg width="120" height="123" viewBox="0 0 326 335" fill="none" xmlns="http://www.w3.org/2000/svg" className="mx-auto mb-6 animate-bounce-slow">
+                <path d="M200 128.171C200 183.399 155.228 228.171 100 228.171C44.7715 228.171 0 183.399 0 128.171C0 72.9422 44.7715 28.1707 100 28.1707C155.228 28.1707 200 72.9422 200 128.171Z" fill="#D9D9D9"/>
+                <path d="M192 127.671C192 178.757 150.586 220.171 99.5 220.171C48.4137 220.171 7 178.757 7 127.671C7 76.5844 48.4137 35.1707 99.5 35.1707C150.586 35.1707 192 76.5844 192 127.671Z" fill="#B3D966"/>
+                <path d="M261 234.171C261 289.399 216.228 334.171 161 334.171C105.772 334.171 61 289.399 61 234.171C61 178.942 105.772 134.171 161 134.171C216.228 134.171 261 178.942 261 234.171Z" fill="#D9D9D9"/>
+                <path d="M253 233.671C253 284.757 211.586 326.171 160.5 326.171C109.414 326.171 68 284.757 68 233.671C68 182.584 109.414 141.171 160.5 141.171C211.586 141.171 253 182.584 253 233.671Z" fill="#B3D966"/>
+                <path d="M326 135.171C326 190.399 281.228 235.171 226 235.171C170.772 235.171 126 190.399 126 135.171C126 79.9422 170.772 35.1707 226 35.1707C281.228 35.1707 326 79.9422 326 135.171Z" fill="#D9D9D9"/>
+                <path d="M318 134.671C318 185.757 276.586 227.171 225.5 227.171C174.414 227.171 133 185.757 133 134.671C133 83.5844 174.414 42.1707 225.5 42.1707C276.586 42.1707 318 83.5844 318 134.671Z" fill="#B3D966"/>
+                <path d="M148.5 20.0008C147.119 17.6094 147.939 14.5514 150.33 13.1707L171.981 0.670708C174.372 -0.710004 177.43 0.109372 178.811 2.50083L191.311 24.1515C192.692 26.5429 191.872 29.6009 189.481 30.9816L167.83 43.4816C165.439 44.8623 162.381 44.0429 161 41.6515L148.5 20.0008Z" fill="#C96464"/>
+              </svg>
+              <h1 className="text-4xl font-bold text-[#558B2F] mb-3">포도 상점</h1>
+              <p className="text-lg text-[#7CB342]">내 사진이 돈이 되는 순간</p>
+            </div>
+
+            <div className="space-y-4">
+              <button
+                onClick={() => {
+                  setAuthMode('signin')
+                  setEmailMode('signin')
+                  setStep('select')
+                }}
+                className="w-full bg-gradient-to-r from-[#B3D966] to-[#9DC183] text-white font-bold py-6 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 text-xl"
+              >
+                로그인
+              </button>
+
+              <button
+                onClick={() => {
+                  setAuthMode('signup')
+                  setEmailMode('signup')
+                  setStep('select')
+                }}
+                className="w-full bg-white hover:bg-gray-50 border-2 border-[#B3D966] text-[#558B2F] font-bold py-6 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 text-xl"
+              >
+                회원가입
+              </button>
+            </div>
+
+            {onBack && (
+              <div className="text-center mt-6">
+                <button
+                  onClick={onBack}
+                  className="text-gray-600 hover:text-gray-800 underline font-medium"
+                >
+                  로그인 없이 둘러보기
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Step 1: 방식 선택 */}
         {step === 'select' && (
           <div className="animate-fadeIn relative">
@@ -271,7 +340,7 @@ export default function Auth({ onSuccess, onBack }) {
                   setStep('google')
                   handleGoogleLogin()
                 })}
-                disabled={loading || !termsAccepted || !privacyAccepted}
+                disabled={loading || (authMode === 'signup' && (!termsAccepted || !privacyAccepted))}
                 className="w-full bg-white hover:bg-gray-50 border-2 border-gray-200 hover:border-blue-400 text-gray-800 font-bold py-5 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-4 text-lg"
               >
                 <svg className="w-7 h-7" viewBox="0 0 24 24">
@@ -289,7 +358,7 @@ export default function Auth({ onSuccess, onBack }) {
                   setStep('kakao')
                   handleKakaoLogin()
                 })}
-                disabled={loading || !termsAccepted || !privacyAccepted}
+                disabled={loading || (authMode === 'signup' && (!termsAccepted || !privacyAccepted))}
                 className="w-full bg-[#FEE500] hover:bg-[#FDD835] text-gray-800 font-bold py-5 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-4 text-lg"
               >
                 <svg className="w-7 h-7" viewBox="0 0 24 24">
@@ -301,7 +370,7 @@ export default function Auth({ onSuccess, onBack }) {
               {/* Email - 그린 */}
               <button
                onClick={() => handleAuthButtonClick(() => setStep('email'))}
-               disabled={loading || !termsAccepted || !privacyAccepted}
+               disabled={loading || (authMode === 'signup' && (!termsAccepted || !privacyAccepted))}
                className="w-full bg-gradient-to-r from-cyan-400 to-cyan-500 hover:from-cyan-500 hover:to-cyan-600 border-2 border-cyan-500 text-white font-bold py-5 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-4 text-lg"
               >
               <Mail className="w-7 h-7 text-white" />
@@ -319,33 +388,39 @@ export default function Auth({ onSuccess, onBack }) {
             </button>
             </div>
 
-            {/* 약관 안내 */}
-            <div className="text-center text-sm text-gray-500 mt-8 space-y-2">
-              <p>
-                가입 전{' '}
-                <button 
-                  onClick={(e) => {
-                    e.preventDefault()
-                    setShowTerms(true)
-                  }}
-                  className="text-orange-600 hover:text-orange-700 hover:underline font-medium"
-                >
-                  이용약관
-                </button>
-                {termsAccepted && <span className="text-green-600 ml-1">✓</span>}
-                {' '}및{' '}
-                <button 
-                  onClick={(e) => {
-                    e.preventDefault()
-                    setShowPrivacy(true)
-                  }}
-                  className="text-orange-600 hover:text-orange-700 hover:underline font-medium"
-                >
-                  개인정보처리방침
-                </button>
-                {privacyAccepted && <span className="text-green-600 ml-1">✓</span>}
-                을 확인해 주세요.
-              </p>
+            {/* 약관 안내 - 회원가입일 때만 표시 */}
+            {authMode === 'signup' && (
+              <div className="text-center text-sm text-gray-500 mt-8 space-y-2">
+                <p>
+                  가입 전{' '}
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setShowTerms(true)
+                    }}
+                    className="text-orange-600 hover:text-orange-700 hover:underline font-medium"
+                  >
+                    이용약관
+                  </button>
+                  {termsAccepted && <span className="text-green-600 ml-1">✓</span>}
+                  {' '}및{' '}
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setShowPrivacy(true)
+                    }}
+                    className="text-orange-600 hover:text-orange-700 hover:underline font-medium"
+                  >
+                    개인정보처리방침
+                  </button>
+                  {privacyAccepted && <span className="text-green-600 ml-1">✓</span>}
+                  을 확인해 주세요.
+                </p>
+              </div>
+            )}
+
+            {/* 로그인 없이 둘러보기 */}
+            <div className="text-center text-sm text-gray-500 mt-6 space-y-2">
               
               {/* 로그인 없이 둘러보기 */}
               {onBack && (
