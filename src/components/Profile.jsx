@@ -83,7 +83,7 @@ export default function Profile() {
       const { count: uploadsCount, error: uploadsError } = await supabase
         .from('photos')
         .select('*', { count: 'exact', head: true })
-        .eq('seller_id', userId)
+        .eq('user_id', userId)
 
       console.log('📤 업로드 수:', uploadsCount, uploadsError ? '❌ 에러: ' + uploadsError.message : '✅')
 
