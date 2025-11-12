@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { Search, Plus, Heart, TrendingUp, Sparkles, Menu, X, Home as HomeIcon, Upload as UploadIcon, User, CreditCard, MessageSquare, LogOut, Loader, Eye } from 'lucide-react'
 import Timer from '../components/Timer'
 import { useLikes } from '../hooks/useLikes'
+import NotificationBell from '../components/NotificationBell'
 
 // 사진 카드 컴포넌트 (좋아요 기능 포함)
 function PhotoCard({ photo, user }) {
@@ -319,8 +320,12 @@ export default function Home() {
       <div className="sticky top-0 z-10 bg-gradient-to-r from-[#B3D966] to-[#9DC183] shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4">
           
-          {/* 로고 & 타이틀 */}
-          <div className="flex items-center justify-center mb-4">
+          {/* 로고 & 타이틀 & 알림 */}
+          <div className="flex items-center justify-between mb-4">
+            {/* 왼쪽: 햄버거 메뉴 (공간 확보용) */}
+            <div className="w-10"></div>
+
+            {/* 중앙: 로고 & 타이틀 */}
             <div className="flex items-center gap-3">
               {/* 작은 로고 */}
               <svg width="40" height="41" viewBox="0 0 326 335" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-lg">
@@ -337,6 +342,9 @@ export default function Home() {
                 <p className="text-xs text-white/80">신선한 사진들</p>
               </div>
             </div>
+
+            {/* 우측: 알림 벨 */}
+            <NotificationBell />
           </div>
 
           {/* 검색 바 */}

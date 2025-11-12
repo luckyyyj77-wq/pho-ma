@@ -1,9 +1,11 @@
 // src/components/Profile.jsx - 샤인머스켓 테마 (실제 데이터 연동)
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-import { LogOut, User, Mail, Calendar, Sparkles, Upload, Home, CreditCard, Award } from 'lucide-react'
+import { LogOut, User, Mail, Calendar, Sparkles, Upload, Home, CreditCard, Award, ShoppingBag, Heart, Store } from 'lucide-react'
 
 export default function Profile() {
+  const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -347,19 +349,36 @@ export default function Profile() {
               )}
             </button>
           </div>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
+          <div className="grid grid-cols-3 gap-4">
+            {/* 판매중 버튼 */}
+            <button
+              onClick={() => navigate('/my-activity?tab=selling')}
+              className="flex flex-col items-center gap-2 p-4 bg-gradient-to-br from-[#E8F5E9] to-[#C8E6C9] rounded-xl hover:shadow-lg transition-all transform hover:-translate-y-1"
+            >
+              <Store size={24} className="text-[#558B2F]" />
               <p className="text-3xl font-bold text-[#B3D966]">{stats.uploads}</p>
-              <p className="text-xs text-gray-600 mt-1">업로드</p>
-            </div>
-            <div>
+              <p className="text-xs text-gray-700 font-semibold">판매중</p>
+            </button>
+
+            {/* 구매목록 버튼 */}
+            <button
+              onClick={() => navigate('/my-activity?tab=purchases')}
+              className="flex flex-col items-center gap-2 p-4 bg-gradient-to-br from-[#E3F2FD] to-[#BBDEFB] rounded-xl hover:shadow-lg transition-all transform hover:-translate-y-1"
+            >
+              <ShoppingBag size={24} className="text-blue-600" />
               <p className="text-3xl font-bold text-blue-500">{stats.purchases}</p>
-              <p className="text-xs text-gray-600 mt-1">구매</p>
-            </div>
-            <div>
+              <p className="text-xs text-gray-700 font-semibold">구매목록</p>
+            </button>
+
+            {/* 좋아요 버튼 */}
+            <button
+              onClick={() => navigate('/my-activity?tab=likes')}
+              className="flex flex-col items-center gap-2 p-4 bg-gradient-to-br from-[#FCE4EC] to-[#F8BBD0] rounded-xl hover:shadow-lg transition-all transform hover:-translate-y-1"
+            >
+              <Heart size={24} className="text-pink-600" />
               <p className="text-3xl font-bold text-pink-500">{stats.likes}</p>
-              <p className="text-xs text-gray-600 mt-1">좋아요</p>
-            </div>
+              <p className="text-xs text-gray-700 font-semibold">좋아요</p>
+            </button>
           </div>
         </div>
 

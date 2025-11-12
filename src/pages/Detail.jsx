@@ -2,21 +2,26 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-import { ArrowLeft, Heart, Gavel, Zap, TrendingUp, User as UserIcon, Clock, Eye } from 'lucide-react'
+import { ArrowLeft, Heart, Gavel, Zap, TrendingUp, User as UserIcon, Clock, Eye, X } from 'lucide-react'
 import Timer from '../components/Timer'
 import { useLikes } from '../hooks/useLikes'
+import NotificationBell from '../components/NotificationBell'
 
 export default function Detail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  
+
   const [photo, setPhoto] = useState(null)
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
+  const [userPoints, setUserPoints] = useState(0)
   const [bidAmount, setBidAmount] = useState('')
   const [bids, setBids] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [buyingNow, setBuyingNow] = useState(false)
+  const [cancelling, setCancelling] = useState(null)
+  const [auctionStatus, setAuctionStatus] = useState(null)
+  const [finalizing, setFinalizing] = useState(false)
 
   // 좋아요 기능
   const { isLiked, likesCount, loading: likeLoading, toggleLike } = useLikes(id, user?.id)
@@ -25,6 +30,7 @@ export default function Detail() {
     checkUser()
     fetchPhoto()
     fetchBids()
+    checkAuctionStatus()
     incrementViewCount() // 조회수 증가
 
     // 실시간 입찰 구독
@@ -35,18 +41,36 @@ export default function Detail() {
         () => {
           fetchPhoto()
           fetchBids()
+          checkAuctionStatus()
         }
       )
       .subscribe()
 
+    // 10초마다 경매 상태 확인 (자동 낙찰 체크)
+    const interval = setInterval(() => {
+      checkAuctionStatus()
+    }, 10000)
+
     return () => {
       subscription.unsubscribe()
+      clearInterval(interval)
     }
   }, [id])
 
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
+
+    // 사용자 포인트 가져오기
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('points')
+        .eq('id', user.id)
+        .single()
+
+      setUserPoints(profile?.points || 0)
+    }
   }
 
   // 조회수 증가 함수 (중복 방지)
@@ -147,7 +171,7 @@ export default function Detail() {
     }
   }
 
-  // 입찰하기
+  // 입찰하기 (보증금 차감)
   const handleBid = async () => {
     if (!user) {
       alert('로그인이 필요합니다.')
@@ -156,7 +180,7 @@ export default function Detail() {
     }
 
     const amount = parseInt(bidAmount)
-    
+
     if (isNaN(amount) || amount <= 0) {
       alert('올바른 금액을 입력해주세요.')
       return
@@ -172,26 +196,37 @@ export default function Detail() {
       return
     }
 
+    // 포인트 부족 확인
+    if (amount > userPoints) {
+      alert(`보유 포인트가 부족합니다. (보유: ${userPoints.toLocaleString()}P)`)
+      return
+    }
+
+    if (!confirm(`${amount.toLocaleString()}P를 보증금으로 차감하고 입찰하시겠습니까?\n\n입찰이 밀리거나 취소하면 환불됩니다.`)) {
+      return
+    }
+
     setSubmitting(true)
 
     try {
-      const { error } = await supabase
-        .from('bids')
-        .insert([
-          {
-            photo_id: id,
-            user_id: user.id,
-            amount: amount,
-            status: 'active'
-          }
-        ])
+      // Supabase RPC로 보증금 차감 및 입찰
+      const { data, error } = await supabase.rpc('place_bid_with_deposit', {
+        p_photo_id: id,
+        p_user_id: user.id,
+        p_amount: amount
+      })
 
       if (error) throw error
 
-      alert(`입찰 성공! ${amount.toLocaleString()}P`)
-      setBidAmount((amount + 100).toString())
-      fetchPhoto()
-      fetchBids()
+      if (data.success) {
+        alert(data.message)
+        setBidAmount((amount + 100).toString())
+        checkUser() // 포인트 업데이트
+        fetchPhoto()
+        fetchBids()
+      } else {
+        alert(data.message)
+      }
     } catch (error) {
       console.error('Error bidding:', error)
       alert('입찰 중 오류가 발생했습니다.')
@@ -200,7 +235,7 @@ export default function Detail() {
     }
   }
 
-  // 즉시 구매
+  // 즉시 구매 (포인트 차감 및 기존 입찰자 환불)
   const handleBuyNow = async () => {
     if (!user) {
       alert('로그인이 필요합니다.')
@@ -208,40 +243,35 @@ export default function Detail() {
       return
     }
 
-    if (!confirm(`즉시 구매하시겠습니까?\n${photo.buy_now_price.toLocaleString()}P`)) {
+    // 포인트 부족 확인
+    if (photo.buy_now_price > userPoints) {
+      alert(`보유 포인트가 부족합니다. (보유: ${userPoints.toLocaleString()}P)`)
+      return
+    }
+
+    if (!confirm(`즉시 구매하시겠습니까?\n${photo.buy_now_price.toLocaleString()}P가 차감됩니다.`)) {
       return
     }
 
     setBuyingNow(true)
 
     try {
-      // 입찰 추가 (즉시구매가)
-      const { error: bidError } = await supabase
-        .from('bids')
-        .insert([
-          {
-            photo_id: id,
-            user_id: user.id,
-            amount: photo.buy_now_price,
-            status: 'won'
-          }
-        ])
+      // Supabase RPC로 즉시 구매 처리
+      const { data, error } = await supabase.rpc('buy_now_with_deposit', {
+        p_photo_id: id,
+        p_user_id: user.id
+      })
 
-      if (bidError) throw bidError
+      if (error) throw error
 
-      // 사진 상태 변경
-      const { error: updateError } = await supabase
-        .from('photos')
-        .update({ 
-          status: 'sold',
-          current_price: photo.buy_now_price
-        })
-        .eq('id', id)
-
-      if (updateError) throw updateError
-
-      alert('구매 완료! 🎉')
-      fetchPhoto()
+      if (data.success) {
+        alert(data.message)
+        checkUser() // 포인트 업데이트
+        fetchPhoto()
+        fetchBids()
+      } else {
+        alert(data.message)
+      }
     } catch (error) {
       console.error('Error buying:', error)
       alert('구매 중 오류가 발생했습니다.')
@@ -250,11 +280,119 @@ export default function Detail() {
     }
   }
 
+  // 경매 상태 확인
+  const checkAuctionStatus = async () => {
+    try {
+      const { data, error } = await supabase.rpc('check_auction_status', {
+        p_photo_id: id
+      })
+
+      if (error) throw error
+
+      if (data && data.success) {
+        setAuctionStatus(data)
+
+        // 7일 경과 시 자동 낙찰
+        if (data.should_auto_finalize && photo?.status === 'active') {
+          await handleAutoFinalize()
+        }
+      }
+    } catch (error) {
+      console.error('Error checking auction status:', error)
+    }
+  }
+
+  // 판매자 수동 낙찰
+  const handleSellerFinalize = async () => {
+    if (!confirm('최고가 입찰자에게 낙찰하시겠습니까?')) {
+      return
+    }
+
+    setFinalizing(true)
+
+    try {
+      const { data, error } = await supabase.rpc('seller_finalize_auction', {
+        p_photo_id: id,
+        p_seller_id: user.id
+      })
+
+      if (error) throw error
+
+      if (data.success) {
+        alert(data.message)
+        checkUser() // 포인트 업데이트
+        fetchPhoto()
+        fetchBids()
+      } else {
+        alert(data.message)
+      }
+    } catch (error) {
+      console.error('Error finalizing auction:', error)
+      alert('낙찰 처리 중 오류가 발생했습니다.')
+    } finally {
+      setFinalizing(false)
+    }
+  }
+
+  // 자동 낙찰 (7일 경과)
+  const handleAutoFinalize = async () => {
+    try {
+      const { data, error } = await supabase.rpc('auto_finalize_auction', {
+        p_photo_id: id
+      })
+
+      if (error) throw error
+
+      if (data.success) {
+        console.log(data.message)
+        checkUser() // 포인트 업데이트
+        fetchPhoto()
+        fetchBids()
+      }
+    } catch (error) {
+      console.error('Error auto finalizing auction:', error)
+    }
+  }
+
+  // 입찰 취소 (보증금 환불)
+  const handleCancelBid = async (bidId, amount) => {
+    if (!confirm(`입찰을 취소하시겠습니까?\n${amount.toLocaleString()}P가 환불됩니다.`)) {
+      return
+    }
+
+    setCancelling(bidId)
+
+    try {
+      const { data, error } = await supabase.rpc('cancel_bid', {
+        p_bid_id: bidId,
+        p_user_id: user.id
+      })
+
+      if (error) throw error
+
+      if (data.success) {
+        alert(data.message)
+        checkUser() // 포인트 업데이트
+        fetchPhoto()
+        fetchBids()
+      } else {
+        alert(data.message)
+      }
+    } catch (error) {
+      console.error('Error cancelling bid:', error)
+      alert('입찰 취소 중 오류가 발생했습니다.')
+    } finally {
+      setCancelling(null)
+    }
+  }
+
   // 경매 종료 처리
   const handleExpire = async () => {
     try {
       await supabase.rpc('finalize_auction', { p_photo_id: id })
+      checkUser() // 포인트 업데이트 (환불받은 경우)
       fetchPhoto()
+      fetchBids()
     } catch (error) {
       console.error('Error finalizing auction:', error)
     }
@@ -305,14 +443,19 @@ export default function Detail() {
       {/* 헤더 */}
       <div className="sticky top-0 z-10 bg-gradient-to-r from-[#B3D966] to-[#9DC183] shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/')}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <ArrowLeft size={24} className="text-white" />
-            </button>
-            <h1 className="text-lg font-black text-white">경매 상세</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate('/')}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <ArrowLeft size={24} className="text-white" />
+              </button>
+              <h1 className="text-lg font-black text-white">경매 상세</h1>
+            </div>
+
+            {/* 알림 벨 */}
+            <NotificationBell />
           </div>
         </div>
       </div>
@@ -392,10 +535,27 @@ export default function Detail() {
               </div>
             </div>
 
-            {/* 타이머 */}
-            {!isExpired && (
+            {/* 경매 상태 타이머 */}
+            {!isExpired && auctionStatus && (
               <div className="mb-4 p-4 bg-gradient-to-r from-[#FFF9C4] to-[#FFF59D] rounded-xl">
-                <Timer endTime={photo.end_time} onExpire={handleExpire} />
+                <div className="text-center">
+                  <p className="text-sm text-gray-700 mb-1">경매 진행 시간</p>
+                  <p className="text-2xl font-black text-[#F57C00]">
+                    {auctionStatus.days_elapsed}일 경과
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    ({auctionStatus.hours_elapsed}시간)
+                  </p>
+                  {auctionStatus.should_auto_finalize ? (
+                    <p className="text-xs text-red-600 font-semibold mt-2">
+                      ⚠️ 7일 경과! 자동 낙찰 처리 중...
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-600 mt-2">
+                      7일 후 자동 낙찰 (남은 시간: {(7 - auctionStatus.days_elapsed).toFixed(1)}일)
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -416,9 +576,34 @@ export default function Detail() {
               </div>
             </div>
 
+            {/* 판매자용 수동 낙찰 버튼 (24시간 후부터) */}
+            {!isExpired && user && photo.user_id === user.id && auctionStatus?.can_finalize && bids.length > 0 && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-[#FF6F00] to-[#FF8F00] rounded-xl">
+                <p className="text-white text-sm text-center mb-3">
+                  🎯 판매자님, 24시간이 지났습니다!
+                  <br />
+                  최고가 입찰자에게 낙찰하실 수 있습니다.
+                </p>
+                <button
+                  onClick={handleSellerFinalize}
+                  disabled={finalizing}
+                  className="w-full px-6 py-3 bg-white text-[#FF6F00] rounded-xl font-bold text-lg hover:shadow-lg transition-all disabled:opacity-50"
+                >
+                  {finalizing ? '낙찰 처리 중...' : '낙찰하기'}
+                </button>
+              </div>
+            )}
+
             {/* 입찰 UI - 모바일 최적화 */}
-            {!isExpired && user && (
+            {!isExpired && user && photo.user_id !== user.id && (
               <div className="space-y-3">
+                {/* 보유 포인트 표시 */}
+                <div className="p-3 bg-gradient-to-r from-[#FFF9C4] to-[#FFF59D] rounded-xl">
+                  <p className="text-sm text-gray-700 text-center">
+                    보유 포인트: <span className="font-black text-[#F57C00]">{userPoints.toLocaleString()}P</span>
+                  </p>
+                </div>
+
                 {/* 입찰 금액 입력 */}
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-gray-700">입찰 금액</label>
@@ -492,41 +677,74 @@ export default function Detail() {
                 <p className="text-sm mt-1">첫 번째로 입찰해보세요!</p>
               </div>
             ) : (
-              bids.map((bid, index) => (
-                <div key={bid.id} className="p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
-                        index === 0 ? 'bg-gradient-to-br from-[#FFD700] to-[#FFA000]' : 'bg-gradient-to-br from-[#B3D966] to-[#9DC183]'
-                      }`}>
-                        {index === 0 ? '🏆' : bid.profiles?.username?.[0]?.toUpperCase() || 'U'}
+              bids.map((bid, index) => {
+                const isMyBid = user && bid.user_id === user.id
+                const canCancel = isMyBid && bid.status === 'active' && !isExpired
+                const isHighestBid = index === 0
+
+                return (
+                  <div key={bid.id} className="p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
+                          isHighestBid ? 'bg-gradient-to-br from-[#FFD700] to-[#FFA000]' :
+                          isMyBid ? 'bg-gradient-to-br from-[#4CAF50] to-[#66BB6A]' :
+                          'bg-gradient-to-br from-[#B3D966] to-[#9DC183]'
+                        }`}>
+                          {isHighestBid ? '🏆' : bid.profiles?.username?.[0]?.toUpperCase() || 'U'}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-800">
+                            {bid.profiles?.username || '익명'}
+                            {isHighestBid && ' (최고가)'}
+                            {isMyBid && ' (나)'}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(bid.created_at).toLocaleString('ko-KR')}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-800">
-                          {bid.profiles?.username || '익명'}
-                          {index === 0 && ' (최고가)'}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(bid.created_at).toLocaleString('ko-KR')}
-                        </p>
+                      <div className="text-right flex items-center gap-2">
+                        <div>
+                          <p className={`text-xl font-black ${
+                            isHighestBid ? 'text-[#FF6F00]' : 'text-[#558B2F]'
+                          }`}>
+                            {bid.amount.toLocaleString()}P
+                          </p>
+                          {bid.status === 'won' && (
+                            <span className="text-xs text-red-600 font-semibold">낙찰</span>
+                          )}
+                          {bid.status === 'outbid' && (
+                            <span className="text-xs text-gray-500">경쟁에서 밀림</span>
+                          )}
+                          {bid.status === 'cancelled' && (
+                            <span className="text-xs text-orange-500 font-semibold">취소됨</span>
+                          )}
+                        </div>
+
+                        {/* 입찰 취소 버튼 (본인의 active 입찰만, 최고가는 취소 불가) */}
+                        {canCancel && !isHighestBid && (
+                          <button
+                            onClick={() => handleCancelBid(bid.id, bid.amount)}
+                            disabled={cancelling === bid.id}
+                            className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                            title="입찰 취소"
+                          >
+                            <X size={16} />
+                          </button>
+                        )}
+
+                        {/* 최고가는 취소 불가 안내 */}
+                        {canCancel && isHighestBid && (
+                          <div className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-500">
+                            최고가는 취소 불가
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-xl font-black ${
-                        index === 0 ? 'text-[#FF6F00]' : 'text-[#558B2F]'
-                      }`}>
-                        {bid.amount.toLocaleString()}P
-                      </p>
-                      {bid.status === 'won' && (
-                        <span className="text-xs text-red-600 font-semibold">낙찰</span>
-                      )}
-                      {bid.status === 'outbid' && (
-                        <span className="text-xs text-gray-500">경쟁에서 밀림</span>
-                      )}
                     </div>
                   </div>
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>
