@@ -2,10 +2,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-import { ArrowLeft, Heart, Gavel, Zap, TrendingUp, User as UserIcon, Clock, Eye, X } from 'lucide-react'
+import { ArrowLeft, Heart, Gavel, Zap, TrendingUp, User as UserIcon, Clock, Eye, X, RefreshCw, Trash2 } from 'lucide-react'
 import Timer from '../components/Timer'
 import { useLikes } from '../hooks/useLikes'
 import NotificationBell from '../components/NotificationBell'
+import RelistModal from '../components/RelistModal'
 
 export default function Detail() {
   const { id } = useParams()
@@ -22,6 +23,8 @@ export default function Detail() {
   const [cancelling, setCancelling] = useState(null)
   const [auctionStatus, setAuctionStatus] = useState(null)
   const [finalizing, setFinalizing] = useState(false)
+  const [showRelistModal, setShowRelistModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // 좋아요 기능
   const { isLiked, likesCount, loading: likeLoading, toggleLike } = useLikes(id, user?.id)
@@ -398,6 +401,63 @@ export default function Detail() {
     }
   }
 
+  // 재등록
+  const handleRelist = async ({ startPrice, buyNowPrice, duration }) => {
+    try {
+      const { data, error } = await supabase.rpc('relist_auction', {
+        p_photo_id: id,
+        p_user_id: user.id,
+        p_new_start_price: startPrice,
+        p_new_buy_now_price: buyNowPrice,
+        p_duration_days: duration
+      })
+
+      if (error) throw error
+
+      if (data.success) {
+        alert(data.message)
+        setShowRelistModal(false)
+        fetchPhoto()
+        fetchBids()
+      } else {
+        alert(data.message)
+      }
+    } catch (error) {
+      console.error('재등록 오류:', error)
+      alert('재등록 중 오류가 발생했습니다.')
+    }
+  }
+
+  // 삭제
+  const handleDelete = async () => {
+    if (!confirm('정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      return
+    }
+
+    setDeleting(true)
+
+    try {
+      const { data, error } = await supabase.rpc('delete_expired_photo', {
+        p_photo_id: id,
+        p_user_id: user.id
+      })
+
+      if (error) throw error
+
+      if (data.success) {
+        alert(data.message)
+        navigate('/my-activity?tab=selling')
+      } else {
+        alert(data.message)
+      }
+    } catch (error) {
+      console.error('삭제 오류:', error)
+      alert('삭제 중 오류가 발생했습니다.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   // 좋아요 클릭 핸들러
   const handleLikeClick = async () => {
     const result = await toggleLike()
@@ -484,8 +544,8 @@ export default function Detail() {
               </div>
             )}
             {photo.status === 'expired' && (
-              <div className="absolute bottom-4 right-4 px-4 py-2 bg-gray-600 text-white font-bold rounded-full shadow-xl">
-                경매 종료
+              <div className="absolute bottom-4 right-4 px-4 py-2 bg-orange-600 text-white font-bold rounded-full shadow-xl">
+                {photo.bids === 0 ? '유찰' : '경매 종료'}
               </div>
             )}
           </div>
@@ -504,11 +564,17 @@ export default function Detail() {
 
               {/* 작성자, 좋아요, 조회수 가로 정렬 */}
               <div className="flex items-center gap-2">
-                {/* 작성자 아이디 */}
-                <div className="px-3 py-2 bg-gray-100 rounded-full flex items-center gap-2">
+                {/* 작성자 아이디 (클릭 가능) */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    navigate(`/user/${photo.user_id}`)
+                  }}
+                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center gap-2 transition-colors cursor-pointer relative z-10"
+                >
                   <UserIcon size={16} className="text-green-500" />
                   <span className="text-gray-800 text-sm font-semibold">{photo.profiles?.username || '익명'}</span>
-                </div>
+                </button>
 
                 {/* 좋아요 버튼 (클릭 가능) */}
                 <button
@@ -591,6 +657,55 @@ export default function Detail() {
                 >
                   {finalizing ? '낙찰 처리 중...' : '낙찰하기'}
                 </button>
+              </div>
+            )}
+
+            {/* 유찰 상태 - 판매자 전용 메뉴 */}
+            {photo.status === 'expired' && photo.bids === 0 && user && photo.user_id === user.id && (
+              <div className="mb-6 space-y-4">
+                {/* 유찰 안내 */}
+                <div className="p-4 bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-xl">
+                  <div className="text-center mb-3">
+                    <p className="text-2xl mb-2">😔</p>
+                    <p className="font-bold text-orange-800 mb-1">경매가 유찰되었습니다</p>
+                    <p className="text-sm text-orange-700">
+                      입찰이 없어 경매가 종료되었습니다
+                    </p>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-3 mb-3">
+                    <p className="text-xs text-gray-600 mb-2">💡 유찰 이유:</p>
+                    <ul className="text-xs text-gray-700 space-y-1">
+                      <li>• 가격이 너무 높을 수 있습니다</li>
+                      <li>• 사진 설명이 부족할 수 있습니다</li>
+                      <li>• 카테고리가 적절하지 않을 수 있습니다</li>
+                    </ul>
+                  </div>
+
+                  <p className="text-xs text-center text-orange-600 font-semibold">
+                    가격을 조정하여 재등록하거나 삭제할 수 있습니다
+                  </p>
+                </div>
+
+                {/* 재등록 / 삭제 버튼 */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setShowRelistModal(true)}
+                    className="px-6 py-4 bg-gradient-to-r from-[#B3D966] to-[#9DC183] text-white rounded-xl font-bold text-lg hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                  >
+                    <RefreshCw size={20} />
+                    재등록
+                  </button>
+
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="px-6 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-bold text-lg hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={20} />
+                    {deleting ? '삭제 중...' : '삭제'}
+                  </button>
+                </div>
               </div>
             )}
 
@@ -749,6 +864,15 @@ export default function Detail() {
           </div>
         </div>
       </div>
+
+      {/* 재등록 모달 */}
+      {showRelistModal && photo && (
+        <RelistModal
+          photo={photo}
+          onClose={() => setShowRelistModal(false)}
+          onRelist={handleRelist}
+        />
+      )}
     </div>
   )
 }

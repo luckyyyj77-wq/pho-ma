@@ -197,20 +197,9 @@ export default function Home() {
       }
     }
 
-    // 상태 필터링 로직 및 24시간 자동 삭제
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-
-    if (showAvailableOnly) {
-      // 구매가능 토글 ON: active, pending만 표시
-      console.log('🛒 구매가능한 사진만 표시')
-      query = query.in('status', ['active', 'pending'])
-    } else {
-      // 구매가능 토글 OFF: 판매 완료 24시간 이내 사진도 표시
-      console.log('📅 판매 완료 24시간 이내 사진 포함')
-      // 1. active/pending 또는
-      // 2. sold/expired이지만 updated_at이 24시간 이내
-      query = query.or(`status.in.(active,pending),and(status.in.(sold,expired),updated_at.gte.${twentyFourHoursAgo})`)
-    }
+    // 상태 필터링: active 상태만 표시 (낙찰/유찰 시 즉시 사라짐)
+    console.log('🛒 경매 진행중인 사진만 표시 (active)')
+    query = query.eq('status', 'active')
 
     // 정렬 적용
     if (selectedCategory === 'popular') {
@@ -343,8 +332,12 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 우측: 알림 벨 */}
-            <NotificationBell />
+            {/* 우측: 알림 벨 (로그인 시) 또는 빈 공간 (비로그인 시) */}
+            {user ? (
+              <NotificationBell />
+            ) : (
+              <div className="w-10"></div>
+            )}
           </div>
 
           {/* 검색 바 */}

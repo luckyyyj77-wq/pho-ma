@@ -48,12 +48,12 @@ export default function MyActivity() {
     setLoading(true)
     try {
       if (activeTab === 'selling') {
-        // 판매중인 사진 (내가 업로드한 사진)
+        // 판매중인 사진 (active + expired 모두 포함)
         const { data, error } = await supabase
           .from('photos')
           .select('*')
           .eq('user_id', user.id)
-          .eq('status', 'active')
+          .in('status', ['active', 'expired'])
           .order('created_at', { ascending: false })
 
         if (error) throw error
@@ -249,6 +249,11 @@ export default function MyActivity() {
                   {photo.status === 'sold' && (
                     <div className="absolute top-2 right-2 px-2 py-1 bg-red-600 text-white text-xs font-bold rounded-full">
                       판매완료
+                    </div>
+                  )}
+                  {photo.status === 'expired' && (
+                    <div className="absolute top-2 right-2 px-2 py-1 bg-orange-600 text-white text-xs font-bold rounded-full">
+                      {photo.bids === 0 ? '유찰' : '종료'}
                     </div>
                   )}
                 </div>

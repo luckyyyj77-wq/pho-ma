@@ -15,6 +15,7 @@ import Community from './pages/Community'
 import CommunityDetail from './pages/CommunityDetail'
 import MyPurchases from './pages/MyPurchases'
 import MyActivity from './pages/MyActivity'
+import UserProfile from './pages/UserProfile'
 
 initLanguage()
 
@@ -52,6 +53,7 @@ function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/my-purchases" element={<MyPurchases />} />
             <Route path="/my-activity" element={<MyActivity />} />
+            <Route path="/user/:userId" element={<UserProfile />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/point-charge" element={<PointCharge />} />

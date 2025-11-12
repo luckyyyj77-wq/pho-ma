@@ -1,11 +1,13 @@
 // src/components/Auth.jsx - 샤인머스켓 그린 테마
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { Mail, Lock, User, Eye, EyeOff, Phone, ArrowLeft, Chrome } from 'lucide-react'
 import TermsModal from './TermsModal'
 import PrivacyModal from './PrivacyModal'
 
 export default function Auth({ onSuccess, onBack }) {
+  const navigate = useNavigate()
   const [step, setStep] = useState('mode') // 'mode', 'select', 'google', 'kakao', 'email', 'phone'
   const [authMode, setAuthMode] = useState('signin') // 'signin' or 'signup'
   const [emailMode, setEmailMode] = useState('signin') // 'signin' or 'signup'
@@ -86,11 +88,20 @@ export default function Auth({ onSuccess, onBack }) {
             url: '/v2/user/me',
             success: async (res) => {
               const email = res.kakao_account.email
-              setMessage({ 
-                type: 'success', 
-                text: `카카오 로그인 성공! (${email})` 
+              setMessage({
+                type: 'success',
+                text: `카카오 로그인 성공! (${email})`
               })
               console.log('Kakao User:', res)
+
+              // 로그인 성공 시 홈으로 자동 이동
+              setTimeout(() => {
+                if (onSuccess) {
+                  onSuccess(res)
+                } else {
+                  navigate('/')
+                }
+              }, 500)
             },
             fail: (error) => {
               setMessage({ type: 'error', text: '카카오 정보 가져오기 실패' })
@@ -137,7 +148,15 @@ export default function Auth({ onSuccess, onBack }) {
         if (error) throw error
 
         setMessage({ type: 'success', text: '로그인 성공!' })
-        if (onSuccess) onSuccess(data.user)
+
+        // 로그인 성공 시 홈으로 자동 이동
+        setTimeout(() => {
+          if (onSuccess) {
+            onSuccess(data.user)
+          } else {
+            navigate('/')
+          }
+        }, 500)
       }
     } catch (error) {
       setMessage({ type: 'error', text: error.message })
@@ -205,7 +224,15 @@ export default function Auth({ onSuccess, onBack }) {
       if (error) throw error
 
       setMessage({ type: 'success', text: '로그인 성공!' })
-      if (onSuccess) onSuccess(data.user)
+
+      // 로그인 성공 시 홈으로 자동 이동
+      setTimeout(() => {
+        if (onSuccess) {
+          onSuccess(data.user)
+        } else {
+          navigate('/')
+        }
+      }, 500)
     } catch (error) {
       setMessage({ type: 'error', text: '인증코드가 올바르지 않습니다.' })
     } finally {

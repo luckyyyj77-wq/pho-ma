@@ -390,12 +390,20 @@ export default function Community() {
                   <div className="flex-1 min-w-0">
                     {/* 작성자 정보 */}
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#B3D966] to-[#9DC183] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                        {post.profiles?.username?.[0]?.toUpperCase() || 'U'}
-                      </div>
-                      <span className="text-xs font-semibold text-gray-700 truncate">
-                        {post.profiles?.username || '익명'}
-                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/user/${post.user_id}`)
+                        }}
+                        className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                      >
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#B3D966] to-[#9DC183] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                          {post.profiles?.username?.[0]?.toUpperCase() || 'U'}
+                        </div>
+                        <span className="text-xs font-semibold text-gray-700 truncate">
+                          {post.profiles?.username || '익명'}
+                        </span>
+                      </button>
                       <span className="text-xs text-gray-400">·</span>
                       <div className="flex items-center gap-1 text-xs text-gray-400">
                         <Clock size={10} />

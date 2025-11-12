@@ -498,7 +498,10 @@ if (!validation.isValid) {
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-4">
           {/* 작성자 정보 */}
           <div className="p-4 border-b border-gray-100">
-            <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(`/user/${post.user_id}`)}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity w-full text-left"
+            >
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#B3D966] to-[#9DC183] flex items-center justify-center text-white font-bold">
                 {post.profiles?.username?.[0]?.toUpperCase() || 'U'}
               </div>
@@ -511,7 +514,7 @@ if (!validation.isValid) {
                   <span>{formatDate(post.created_at)}</span>
                 </div>
               </div>
-            </div>
+            </button>
           </div>
 
           {/* 제목 */}
@@ -584,14 +587,20 @@ if (!validation.isValid) {
               comments.map((comment) => (
                 <div key={comment.id} className="p-4">
                   <div className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#B3D966] to-[#9DC183] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                    <button
+                      onClick={() => navigate(`/user/${comment.user_id}`)}
+                      className="w-8 h-8 rounded-full bg-gradient-to-br from-[#B3D966] to-[#9DC183] flex items-center justify-center text-white text-sm font-bold flex-shrink-0 hover:opacity-80 transition-opacity"
+                    >
                       {comment.profiles?.username?.[0]?.toUpperCase() || 'U'}
-                    </div>
+                    </button>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <p className="font-semibold text-sm text-gray-800">
+                        <button
+                          onClick={() => navigate(`/user/${comment.user_id}`)}
+                          className="font-semibold text-sm text-gray-800 hover:opacity-80 transition-opacity"
+                        >
                           {comment.profiles?.username || '익명'}
-                        </p>
+                        </button>
                         {user && user.id === comment.user_id && (
                           <button
                             onClick={() => handleDeleteComment(comment.id)}
