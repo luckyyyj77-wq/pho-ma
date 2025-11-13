@@ -5,10 +5,13 @@ import { supabase } from '../lib/supabaseClient'
 import { Mail, Lock, User, Eye, EyeOff, Phone, ArrowLeft, Chrome } from 'lucide-react'
 import TermsModal from './TermsModal'
 import PrivacyModal from './PrivacyModal'
+import PasswordStrengthMeter from './PasswordStrengthMeter'
+import PasswordReset from './PasswordReset'
+import { comprehensivePasswordValidation } from '../utils/passwordValidator'
 
 export default function Auth({ onSuccess, onBack }) {
   const navigate = useNavigate()
-  const [step, setStep] = useState('mode') // 'mode', 'select', 'google', 'kakao', 'email', 'phone'
+  const [step, setStep] = useState('mode') // 'mode', 'select', 'google', 'kakao', 'email', 'phone', 'reset-password'
   const [authMode, setAuthMode] = useState('signin') // 'signin' or 'signup'
   const [emailMode, setEmailMode] = useState('signin') // 'signin' or 'signup'
   const [phoneStep, setPhoneStep] = useState('phone') // 'phone' or 'code'
@@ -125,6 +128,17 @@ export default function Auth({ onSuccess, onBack }) {
 
     try {
       if (emailMode === 'signup') {
+        // 비밀번호 검증
+        const validation = comprehensivePasswordValidation(formData.password)
+        if (!validation.valid) {
+          setMessage({
+            type: 'error',
+            text: validation.errors[0] // 첫 번째 에러 표시
+          })
+          setLoading(false)
+          return
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
@@ -564,7 +578,7 @@ export default function Auth({ onSuccess, onBack }) {
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     className="w-full pl-12 pr-12 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#B3D966] focus:border-transparent transition-all"
                     required
-                    minLength={6}
+                    minLength={8}
                   />
                   <button
                     type="button"
@@ -575,7 +589,26 @@ export default function Auth({ onSuccess, onBack }) {
                   </button>
                 </div>
                 {emailMode === 'signup' && (
-                  <p className="text-xs text-gray-500 mt-2">6자 이상 입력해주세요</p>
+                  <div className="mt-3 space-y-2">
+                    <PasswordStrengthMeter password={formData.password} />
+                    <p className="text-xs text-gray-500">
+                      8자 이상, 대소문자, 숫자, 특수문자 포함
+                    </p>
+                  </div>
+                )}
+                {emailMode === 'signin' && (
+                  <div className="mt-2 text-right">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep('reset-password')
+                        setMessage({ type: '', text: '' })
+                      }}
+                      className="text-sm text-[#558B2F] hover:text-[#7CB342] font-semibold hover:underline transition-colors"
+                    >
+                      비밀번호를 잊으셨나요?
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -704,6 +737,11 @@ export default function Auth({ onSuccess, onBack }) {
               </form>
             )}
           </div>
+        )}
+
+        {/* Step 3: 비밀번호 재설정 */}
+        {step === 'reset-password' && (
+          <PasswordReset onBack={() => setStep('email')} />
         )}
       </div>
 
