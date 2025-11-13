@@ -175,21 +175,19 @@ const handleCommentChange = (e) => {
       return
     }
 
-    // 각 댓글의 작성자 정보 가져오기
-    const commentsWithProfiles = await Promise.all(
-      (commentsData || []).map(async (comment) => {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('username, avatar_url')
-          .eq('id', comment.user_id)
-          .single()
+    // 각 댓글의 작성자 정보 가져오기 (N+1 문제 해결)
+    const userIds = [...new Set((commentsData || []).map(c => c.user_id).filter(Boolean))]
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, avatar_url')
+      .in('id', userIds)
 
-        return {
-          ...comment,
-          profiles: profile || { username: '알 수 없음', avatar_url: null }
-        }
-      })
-    )
+    const profileMap = new Map((profiles || []).map(p => [p.id, p]))
+
+    const commentsWithProfiles = (commentsData || []).map(comment => ({
+      ...comment,
+      profiles: profileMap.get(comment.user_id) || { username: '알 수 없음', avatar_url: null }
+    }))
 
     setComments(commentsWithProfiles)
   }

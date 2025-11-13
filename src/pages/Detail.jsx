@@ -150,22 +150,20 @@ export default function Detail() {
         .limit(10)
 
       if (error) throw error
-      
-      // profiles 정보를 별도로 가져오기
-      const bidsWithProfiles = await Promise.all(
-        (data || []).map(async (bid) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('username, avatar_url')
-            .eq('id', bid.user_id)
-            .single()
 
-          return {
-            ...bid,
-            profiles: profile || { username: '익명', avatar_url: null }
-          }
-        })
-      )
+      // profiles 정보를 별도로 가져오기 (N+1 문제 해결)
+      const userIds = [...new Set((data || []).map(bid => bid.user_id).filter(Boolean))]
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', userIds)
+
+      const profileMap = new Map((profiles || []).map(p => [p.id, p]))
+
+      const bidsWithProfiles = (data || []).map(bid => ({
+        ...bid,
+        profiles: profileMap.get(bid.user_id) || { username: '익명', avatar_url: null }
+      }))
 
       setBids(bidsWithProfiles)
     } catch (error) {

@@ -245,21 +245,19 @@ export default function Home() {
         })))
       }
 
-      // 프로필 정보 추가
-      const photosWithProfiles = await Promise.all(
-        sortedData.map(async (photo) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('username')
-            .eq('id', photo.user_id)
-            .single()
+      // 프로필 정보 추가 (N+1 문제 해결 - 한 번의 쿼리로 모든 프로필 조회)
+      const userIds = [...new Set(sortedData.map(photo => photo.user_id).filter(Boolean))]
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .in('id', userIds)
 
-          return {
-            ...photo,
-            profiles: profile || { username: '익명' }
-          }
-        })
-      )
+      const profileMap = new Map((profiles || []).map(p => [p.id, p]))
+
+      const photosWithProfiles = sortedData.map(photo => ({
+        ...photo,
+        profiles: profileMap.get(photo.user_id) || { username: '익명' }
+      }))
 
       if (isInitial) {
         setPhotos(photosWithProfiles)
