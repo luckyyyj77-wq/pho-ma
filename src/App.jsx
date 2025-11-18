@@ -1,4 +1,4 @@
-// src/App.jsx - 최종 통합 버전 (커뮤니티 추가)
+// src/App.jsx - 최종 통합 버전 (커뮤니티 + PWA)
 import { useState, useEffect } from 'react'
 import { AuthProvider } from './contexts/AuthContext'
 import { initLanguage } from './locales'
@@ -16,6 +16,7 @@ import CommunityDetail from './pages/CommunityDetail'
 import MyPurchases from './pages/MyPurchases'
 import MyActivity from './pages/MyActivity'
 import UserProfile from './pages/UserProfile'
+import InstallPrompt from './components/InstallPrompt'
 
 initLanguage()
 
@@ -60,6 +61,9 @@ function App() {
             <Route path="/community" element={<Community />} />
             <Route path="/community/:id" element={<CommunityDetail />} />
           </Routes>
+
+          {/* PWA 설치 프롬프트 */}
+          <InstallPrompt />
         </div>
       </BrowserRouter>
     </AuthProvider>

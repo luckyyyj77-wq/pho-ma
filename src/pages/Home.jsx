@@ -305,10 +305,10 @@ export default function Home() {
       
       {/* 헤더 */}
       <div className="sticky top-0 z-10 bg-gradient-to-r from-[#B3D966] to-[#9DC183] shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          
+        <div className="max-w-7xl mx-auto px-4 py-2">
+
           {/* 로고 & 타이틀 & 알림 */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-2">
             {/* 왼쪽: 햄버거 메뉴 (공간 확보용) */}
             <div className="w-10"></div>
 
@@ -325,7 +325,7 @@ export default function Home() {
                 <path d="M148.5 20.0008C147.119 17.6094 147.939 14.5514 150.33 13.1707L171.981 0.670708C174.372 -0.710004 177.43 0.109372 178.811 2.50083L191.311 24.1515C192.692 26.5429 191.872 29.6009 189.481 30.9816L167.83 43.4816C165.439 44.8623 162.381 44.0429 161 41.6515L148.5 20.0008Z" fill="#C96464"/>
               </svg>
               {/* 포토마켓 (그라데이션 색상) */}
-              <h1 className="text-2xl font-black tracking-tight flex">
+              <h1 className="text-xl font-black tracking-tight flex">
                 <span style={{ color: '#6618b9ff' }}>포</span>
                 <span style={{ color: '#e05c0aff' }}>토</span>
                 <span style={{ color: '#0b69e4ff' }}>마</span>
@@ -345,33 +345,33 @@ export default function Home() {
           <div className="flex items-center gap-2">
             {/* 검색 바 */}
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
                 placeholder="사진 검색..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 rounded-2xl bg-white border-2 border-white/50 focus:border-white focus:outline-none shadow-lg transition-all"
+                className="w-full pl-10 pr-3 py-2 rounded-xl bg-white border-2 border-white/50 focus:border-white focus:outline-none shadow-lg transition-all text-sm"
               />
             </div>
 
             {/* 구매가능 토글 스위치 (2줄) */}
             <button
               onClick={() => setShowAvailableOnly(!showAvailableOnly)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-2xl font-semibold text-xs shadow-lg transition-all flex-shrink-0 ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-semibold text-xs shadow-lg transition-all flex-shrink-0 ${
                 showAvailableOnly
                   ? 'bg-white text-[#B3D966]'
                   : 'bg-white/80 text-gray-700 hover:bg-white'
               }`}
             >
-              <div className={`w-8 h-4 rounded-full transition-all relative ${
+              <div className={`w-7 h-3.5 rounded-full transition-all relative ${
                 showAvailableOnly ? 'bg-[#B3D966]' : 'bg-gray-300'
               }`}>
-                <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
-                  showAvailableOnly ? 'translate-x-4' : 'translate-x-0'
+                <div className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 rounded-full bg-white transition-transform ${
+                  showAvailableOnly ? 'translate-x-3.5' : 'translate-x-0'
                 }`}></div>
               </div>
-              <div className="flex flex-col leading-tight">
+              <div className="flex flex-col leading-tight text-[10px]">
                 <span>구매</span>
                 <span>가능</span>
               </div>
@@ -381,7 +381,7 @@ export default function Home() {
       </div>
 
       {/* 카테고리 태그 */}
-      <div className="max-w-7xl mx-auto px-4 pb-4">
+      <div className="max-w-7xl mx-auto px-4 py-2">
         <div className="overflow-x-auto">
           <div className="flex gap-2 pb-2">
             {categories.map((category) => (
@@ -449,42 +449,42 @@ export default function Home() {
 
       {/* 하단 네비게이션 */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-2xl z-20">
-        <div className="max-w-7xl mx-auto px-4 py-3">
+        <div className="max-w-7xl mx-auto px-4 py-1.5">
           <div className="flex justify-around items-center">
             {/* 햄버거 버튼 */}
             <button
               onClick={() => setMenuOpen(true)}
-              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#B3D966] transition-colors"
+              className="flex flex-col items-center gap-0.5 text-gray-600 hover:text-[#B3D966] transition-colors"
             >
-              <div className="p-2 hover:bg-[#B3D966]/10 rounded-xl transition-colors">
+              <div className="p-1.5 hover:bg-[#B3D966]/10 rounded-lg transition-colors">
                 <Menu size={14} />
               </div>
-              <span className="text-xs font-semibold">메뉴</span>
+              <span className="text-[10px] font-semibold">메뉴</span>
             </button>
 
             {/* 업로드 */}
             <button
               onClick={() => window.location.href = '/upload'}
-              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#B3D966] transition-colors"
+              className="flex flex-col items-center gap-0.5 text-gray-600 hover:text-[#B3D966] transition-colors"
             >
-              <div className="p-2 hover:bg-[#B3D966]/10 rounded-xl transition-colors">
+              <div className="p-1.5 hover:bg-[#B3D966]/10 rounded-lg transition-colors">
                 <Plus size={14} />
               </div>
-              <span className="text-xs font-semibold">업로드</span>
+              <span className="text-[10px] font-semibold">업로드</span>
             </button>
 
             {/* 프로필 */}
             <button
               onClick={() => window.location.href = '/profile'}
-              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#B3D966] transition-colors"
+              className="flex flex-col items-center gap-0.5 text-gray-600 hover:text-[#B3D966] transition-colors"
             >
-              <div className="p-2 hover:bg-[#B3D966]/10 rounded-xl transition-colors">
+              <div className="p-1.5 hover:bg-[#B3D966]/10 rounded-lg transition-colors">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2"/>
                   <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
               </div>
-              <span className="text-xs font-semibold">프로필</span>
+              <span className="text-[10px] font-semibold">프로필</span>
             </button>
           </div>
         </div>

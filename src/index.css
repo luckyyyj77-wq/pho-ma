@@ -22,3 +22,35 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* PWA 설치 프롬프트 애니메이션 */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* iOS Safe Area 지원 */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+/* PWA 전체 화면 모드 감지 */
+@media all and (display-mode: standalone) {
+  body {
+    background-color: #F1F8E9;
+  }
+}
