@@ -7,7 +7,38 @@ export default function InstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false)
 
   useEffect(() => {
-    // PWA 설치 프롬프트 이벤트 감지
+    // iOS 감지
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+
+    // 이미 설치되어 있으면 표시 안 함
+    if (isStandalone) {
+      console.log('✅ 이미 PWA로 실행 중')
+      return
+    }
+
+    // localStorage에서 이전에 닫았는지 확인
+    const dismissedStr = localStorage.getItem('pwa-prompt-dismissed')
+    if (dismissedStr) {
+      const dismissedDate = new Date(dismissedStr)
+      if (dismissedDate > new Date()) {
+        // 아직 만료 안 됨
+        return
+      } else {
+        // 만료됨 - 삭제
+        localStorage.removeItem('pwa-prompt-dismissed')
+      }
+    }
+
+    // iOS는 beforeinstallprompt가 없으므로 바로 표시
+    if (isIOS) {
+      setTimeout(() => {
+        setShowPrompt(true)
+      }, 3000)
+      return
+    }
+
+    // Android/Chrome - beforeinstallprompt 이벤트 감지
     const handler = (e) => {
       // 브라우저 기본 설치 프롬프트 막기
       e.preventDefault()
@@ -15,22 +46,13 @@ export default function InstallPrompt() {
       // 프롬프트 저장
       setDeferredPrompt(e)
 
-      // localStorage에서 이전에 닫았는지 확인
-      const dismissed = localStorage.getItem('pwa-prompt-dismissed')
-      if (!dismissed) {
-        // 3초 후에 프롬프트 표시
-        setTimeout(() => {
-          setShowPrompt(true)
-        }, 3000)
-      }
+      // 3초 후에 프롬프트 표시
+      setTimeout(() => {
+        setShowPrompt(true)
+      }, 3000)
     }
 
     window.addEventListener('beforeinstallprompt', handler)
-
-    // 이미 설치되어 있는지 확인
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      console.log('✅ 이미 PWA로 실행 중')
-    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handler)
